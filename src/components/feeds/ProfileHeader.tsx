@@ -27,46 +27,38 @@ const ProfileHeader = ({ profile, uploading, handleAvatarChange, handleAvatarRem
 	const getWelcomeConfig = () => {
 		const userType = profile?.user_type?.toLowerCase() || "student"
 
+		// Use the uniform salmon/pink color for all profile type banners
+		const baseConfig = {
+			bgColor: "bg-[#e89f9b] dark:bg-[#9a4b49]",
+			borderColor: "border-[#e89f9d] dark:border-[#9a4b49]",
+			titleColor: "text-gray-900 dark:text-gray-100",
+			descColor: "text-gray-800 dark:text-gray-200",
+		}
+
 		if (userType === "student") {
 			return {
-				bgColor: "bg-yellow-100 dark:bg-yellow-950",
-				borderColor: "border-yellow-50",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",		
+				...baseConfig,
 				iconEmoji: "🎓",
-				title: `Welcome ${profile.full_name || "User"}`,
 				message: "Your journey into the industry starts right here!",
 			}
 		} else if (userType === "professional") {
 			return {
-				bgColor: "bg-orange-100 dark:bg-orange-950",
-				borderColor: "bg-[#FFCBA4]",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",
+				...baseConfig,
 				iconEmoji: "💼",
-				title: `Welcome ${profile.full_name || "User"}`,
 				message: "Ready to connect, grow, and lead in Kenya's built environment?",
 			}
 		} else if (userType === "company") {
 			return {
-				bgColor: "bg-green-100 dark:bg-green-950",
-				borderColor: "bg-green-200",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",
+				...baseConfig,
 				iconEmoji: "🪪",
-				title: `Welcome ${profile.organization || profile.full_name || "Your Company"}`,
 				message: "Relevance & Visibility has never been easier until now.",
 			}
 		}
 
 		// Default fallback
 		return {
-			bgColor: "bg-gradient-to-r from-blue-50 to-indigo-50",
-			borderColor: "border-blue-200",
-			titleColor: "text-black-200",
-			descColor: "text-black-400",
+			...baseConfig,
 			iconEmoji: "🎓",
-			title: `Welcome ${profile.full_name || "User"}`,
 			message: "Your journey into the industry starts right here!",
 		}
 	}
