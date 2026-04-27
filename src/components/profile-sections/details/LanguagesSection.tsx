@@ -38,11 +38,11 @@ const LanguagesSection = ({ profile, handleProfileUpdate }: LanguagesSectionProp
 
 	const userType = profile.user_type?.toLowerCase() || "student"
 
-	let badgeClasses = "bg-yellow-100 text-yellow-900 border border-yellow-200"
+	let badgeClasses = "bg-student-100 text-student-900 border border-student-border"
 	if (userType === "professional") {
-		badgeClasses = "bg-[#FFCBA4] text-orange-900 border border-orange-200"
+		badgeClasses = "bg-professional-100 text-professional-900 border border-professional-border"
 	} else if (userType === "company") {
-		badgeClasses = "bg-green-100 text-green-900 border border-green-200"
+		badgeClasses = "bg-company-100 text-company-900 border border-company-border"
 	}
 
 	return (

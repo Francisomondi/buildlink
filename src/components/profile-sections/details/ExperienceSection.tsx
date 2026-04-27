@@ -22,14 +22,14 @@ const ExperienceSection = ({ profile, handleProfileUpdate, maxVisible, canEdit =
 	const hasMore = experiences.length > defaultLimit
 
 	const userType = profile.user_type?.toLowerCase() || "student"
-	let iconBg = "bg-yellow-100"
-	let iconText = "text-yellow-700"
+	let iconBg = "bg-student-100 dark:bg-yellow-950"
+	let iconText = "text-student-700 dark:text-yellow-200"
 	if (userType === "professional") {
-		iconBg = "bg-orange-100"
-		iconText = "text-orange-700"
+		iconBg = "bg-professional-100 dark:bg-orange-950"
+		iconText = "text-professional-700 dark:text-orange-300"
 	} else if (userType === "company") {
-		iconBg = "bg-green-100"
-		iconText = "text-green-700"
+		iconBg = "bg-company-100 dark:bg-green-950"
+		iconText = "text-company-700 dark:text-green-400"
 	}
 
 	if (!canEdit && experiences.length === 0) return null
@@ -63,12 +63,12 @@ const ExperienceSection = ({ profile, handleProfileUpdate, maxVisible, canEdit =
 										<Briefcase className={`h-6 w-6 ${iconText}`} />
 									</div>
 									<div className="min-w-0 flex-1">
-										<h3 className="font-semibold text-gray-900">{exp.title || "[Internship/Role]"}</h3>
-										<p className="text-gray-600">{exp.company || "[Organization/Company]"}</p>
-										<p className="text-sm text-gray-500">{exp.duration || exp.timeline || "[Timeline]"}</p>
+										<h3 className="font-semibold text-foreground">{exp.title || "[Internship/Role]"}</h3>
+										<p className="text-muted-foreground">{exp.company || "[Organization/Company]"}</p>
+										<p className="text-sm text-muted-foreground">{exp.duration || exp.timeline || "[Timeline]"}</p>
 
 										{exp.description && (
-											<p className="mt-2 text-sm text-gray-700">
+											<p className="mt-2 text-sm text-muted-foreground">
 												<ReadMoreText
 													text={exp.description}
 													maxLength={300}
