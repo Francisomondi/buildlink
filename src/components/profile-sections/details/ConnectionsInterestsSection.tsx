@@ -9,15 +9,15 @@ const ConnectionsInterestsSection = ({ profile }: ConnectionsInterestsSectionPro
 	const userType = profile?.user_type?.toLowerCase() || "student"
 	
 	// Get color scheme based on user type
-	let squareColor = "bg-yellow-200"
-	let moreTextColor = "text-amber-900"
+	let squareColor = "bg-student-200"
+	let moreTextColor = "text-student-900"
 	
 	if (userType === "professional") {
-		squareColor = "bg-orange-200"
-		moreTextColor = "text-orange-900"
+		squareColor = "bg-professional-200"
+		moreTextColor = "text-professional-900"
 	} else if (userType === "company") {
-		squareColor = "bg-green-200"
-		moreTextColor = "text-green-900"
+		squareColor = "bg-company-200"
+		moreTextColor = "text-company-900"
 	}
 
 	// Mock data - replace with actual connections and interests

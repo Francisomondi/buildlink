@@ -29,13 +29,14 @@ const AboutActivitySection = ({ profile, userPosts, handleProfileUpdate, publicP
 		return {
 			bgColor: "bg-gradient-to-r from-blue-50 to-indigo-50",
 			borderColor: "border-blue-200",
+			activeTabClass: "data-[state=active]:bg-blue-50",
 		}
 	}
 
 	const colorConfig = getColorConfig()
 
 	return (
-		<Card className="border border-border bg-card shadow-sm">
+		<Card className={`border border-border ${colorConfig.bgColor} shadow-sm`}>
 			<CardContent className="p-0">
 				<Tabs
 				defaultValue="about"
