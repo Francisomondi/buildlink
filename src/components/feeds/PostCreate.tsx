@@ -268,7 +268,7 @@ const PostCreate = () => {
 						<Button
 							variant="ghost"
 							size={isMobile ? "sm" : "sm"}
-							className={cn("text-gray-600", isMobile && "px-2 py-1")}
+							className={cn("text-muted-foreground hover:text-foreground", isMobile && "px-2 py-1")}
 							asChild
 							onClick={() => {
 								if (fileInputRef.current) fileInputRef.current.click()
@@ -288,7 +288,7 @@ const PostCreate = () => {
 						<Button
 							variant="ghost"
 							size={isMobile ? "sm" : "sm"}
-							className={cn("text-gray-600", isMobile && "px-2 py-1")}
+							className={cn("text-muted-foreground hover:text-foreground", isMobile && "px-2 py-1")}
 							onClick={() => documentInputRef.current?.click()}>
 							<FileText className="mr-2 h-4 w-4" />
 							<span className={isMobile ? "sr-only" : ""}>Add PDF</span>
@@ -303,7 +303,7 @@ const PostCreate = () => {
 						<Button
 							variant="ghost"
 							size={isMobile ? "sm" : "sm"}
-							className="text-gray-600"
+							className="text-muted-foreground hover:text-foreground"
 							disabled>
 							<MapPin className="mr-2 h-4 w-4" />
 							<span className={isMobile ? "sr-only" : ""}>Add Location (soon)</span>
@@ -312,7 +312,7 @@ const PostCreate = () => {
 
 					<div className={cn("flex-1 md:flex justify-end mt-4 gap-4", isMobile && "mt-2")}>
 						<Button
-							className={cn("border-primary text-primary hover:bg-primary-800", isMobile && "w-full py-3 text-base")}
+							className={cn("border-primary text-primary hover:bg-primary-800 dark:border-white/50 dark:text-white/70 dark:hover:bg-white/10 dark:disabled:border-white/20 dark:disabled:text-white/40 dark:disabled:opacity-100", isMobile && "w-full py-3 text-base")}
 							variant="outline"
 							disabled={!content.trim() || isLoading}
 							onClick={handleSubmit}>
@@ -320,13 +320,13 @@ const PostCreate = () => {
 						</Button>
 						<Button
 							variant="link"
-							className={cn(isMobile && "w-full py-3 text-base")}
+							className={cn("text-muted-foreground hover:text-foreground dark:text-white/70 dark:hover:text-white dark:disabled:text-white/40 dark:disabled:opacity-100", isMobile && "w-full py-3 text-base")}
 							disabled={!content.trim() || isLoading}
 							onClick={cancelCreatePost}>
 							{isLoading ? "Canceling..." : "Cancel"}
 						</Button>
 						<Button
-							className={cn("bg-primary hover:bg-primary-800", isMobile && "w-full py-3 text-base")}
+							className={cn("bg-primary text-primary-foreground hover:bg-primary-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:disabled:bg-white/5 dark:disabled:text-white/40 dark:disabled:opacity-100 font-medium", isMobile && "w-full py-3 text-base")}
 							disabled={!content.trim() || isLoading}
 							onClick={handleSubmit}>
 							{isLoading ? "Posting..." : "Share Update"}

@@ -34,24 +34,24 @@ const PortfolioSection: React.FC<PortfolioSectionProps> = ({ profile, handleProf
 
 		if (userType === "student") {
 			return {
-				bgColor: "bg-yellow-100",
-				borderColor: "border-yellow-50",
+				bgColor: "bg-student-100 dark:bg-yellow-950",
+				borderColor: "border-student-border dark:border-yellow-800",
 			}
 		} else if (userType === "professional") {
 			return {
-				bgColor: "bg-[#FFCBA4]",
-				borderColor: "border-[#FFCBA4]",
+				bgColor: "bg-professional-100 dark:bg-orange-950",
+				borderColor: "border-professional-border dark:border-orange-800",
 			}
 		} else if (userType === "company") {
 			return {
-				bgColor: "bg-green-200",
-				borderColor: "border-green-200",
+				bgColor: "bg-company-100 dark:bg-green-950",
+				borderColor: "border-company-border dark:border-green-800",
 			}
 		}
 		// Default fallback
 		return {
-			bgColor: "bg-gradient-to-r from-blue-50 to-indigo-50",
-			borderColor: "border-blue-200",
+			bgColor: "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900",
+			borderColor: "border-blue-200 dark:border-slate-700",
 		}
 	}
 
@@ -167,19 +167,19 @@ const PortfolioSection: React.FC<PortfolioSectionProps> = ({ profile, handleProf
 										{/* Folder-style card with stacked effect */}
 										<div className="relative flex h-full flex-col overflow-visible transition-transform group-hover:scale-105">
 											{/* Top tab bar - darker gray, behind the card */}
-											<div className="absolute -top-1 left-3 right-3 z-0 h-5 rounded-t-lg bg-gray-400 shadow-sm" />
+											<div className="absolute -top-1 left-3 right-3 z-0 h-5 rounded-t-lg bg-gray-400 dark:bg-slate-700 shadow-sm" />
 
 											{/* Card body - color-coded card in front, overlapping the gray tab */}
 											<div className={`relative flex h-full flex-col rounded-lg ${colorConfig.bgColor} border ${colorConfig.borderColor} shadow-sm z-10 mt-1`}>
 												<div className="flex min-h-[160px] flex-1 flex-col px-5 pb-5 pt-5">
 													{/* White rectangular field at top with project name */}
-													<div className="mb-4 w-full rounded-md border border-border bg-white px-4 py-3 shadow-sm">
-														<h4 className="truncate text-base font-medium text-gray-900">{item.name}</h4>
+													<div className="mb-4 w-full rounded-md border border-border bg-white dark:bg-card px-4 py-3 shadow-sm">
+														<h4 className="truncate text-base font-medium text-gray-900 dark:text-foreground">{item.name}</h4>
 													</div>
 
 													{/* Thumbnail preview if available */}
 													{item.thumbnailUrl && (
-														<div className="mb-2 h-24 w-full overflow-hidden rounded-md bg-gray-100">
+														<div className="mb-2 h-24 w-full overflow-hidden rounded-md bg-gray-100 dark:bg-slate-800">
 															<img
 																src={item.thumbnailUrl}
 																alt={item.name}

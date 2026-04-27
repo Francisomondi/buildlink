@@ -23,10 +23,10 @@ const UserAvatarHeader: React.FC<UserAvatarHeaderProps> = React.memo(({ user }) 
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
-        <h3 className={cn("truncate font-medium", isMobile ? "text-base" : "text-gray-800")}>
+        <h3 className={cn("truncate font-medium text-foreground", isMobile ? "text-base" : "")}>
           {user?.user_metadata?.full_name || 'Your Name'}
         </h3>
-        {!isMobile && <p className="text-sm text-gray-600">Professional</p>}
+        {!isMobile && <p className="text-sm text-muted-foreground">Professional</p>}
       </div>
     </div>
   );

@@ -126,12 +126,18 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
   const handleFileUpload = async (file: File) => {
     setError(null);
     
-    // Check if it's an image
-    if (!file.type.startsWith('image/')) {
-      setError("Only image files are allowed. Please upload a JPG, PNG, or GIF file.");
-      return false;
+    const isImage = file.type.startsWith('image/')
+    const isPDF = file.type === 'application/pdf'
+
+    if (!isImage && !isPDF) {
+      setError("Only image or PDF files are allowed.")
+      return false
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be 10MB or less.")
+      return false
+    }
     // Check portfolio limit
     if (portfolioList.length >= 3) {
       setError("You can only upload up to 3 portfolio items.");
@@ -159,12 +165,12 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
 
     const item: PortfolioItem = {
       id: Math.random().toString(36).substring(2),
-      name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension from name
+      name: file.name.replace(/\.[^/.]+$/, ""),
       url,
-      type: "image",
+      type: isPDF ? "pdf" : "image",
       description: desc,
-      thumbnailUrl: thumbnailUrl || url, // Use thumbnail if provided, otherwise use main image
-    };
+      thumbnailUrl: isPDF ? thumbnailUrl || "" : thumbnailUrl || url,
+    }
     const newPortfolio = [...portfolioList, item];
     await updatePortfolio(newPortfolio);
     setUploading(false);
@@ -261,20 +267,20 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
             Add New Portfolio Project
           </DialogTitle>
           <DialogDescription>
-            Share your best work—upload images or add accessible project links. You can also choose custom thumbnails.
+            Share your best work—upload images or PDFs, or add accessible project links. You can also choose custom thumbnails.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-2">
-          <label className="block font-semibold mb-1">Upload an Image</label>
+          <label className="block font-semibold mb-1 text-foreground">Upload an Image or PDF</label>
           <div className="flex items-center gap-2">
             <input
-              title="Upload an Image"
+              title="Upload an Image/Document"
               type="file"
-              accept="image/*"
+              accept="image/*, .pdf"
               ref={fileInput}
               onChange={handleFileChange}
               disabled={uploading || disabled}
-              className="block disabled:opacity-50 flex-1"
+              className="block disabled:opacity-50 flex-1 text-foreground file:bg-muted file:text-foreground file:border-0 file:py-1.5 file:px-3 file:rounded-md file:mr-3 hover:file:bg-accent hover:file:text-accent-foreground transition-colors cursor-pointer"
             />
             {selectedFile && (
               <button
@@ -289,27 +295,27 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
             )}
           </div>
           {selectedFile && (
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-sm text-muted-foreground mt-1">
               Selected: {selectedFile.name}
             </div>
           )}
           {(progress > 0 && progress < 99) && (
             <Progress value={progress} className="mt-2" />
           )}
-          <div className="text-xs text-gray-500 mt-1 mb-2">
-            Max 10MB. Image files only (JPG, PNG, GIF, WebP).
+          <div className="text-xs text-muted-foreground mt-1 mb-2">
+            Max 10MB. Accepted: JPG, PNG, GIF, WebP, PDF.
             {portfolioList.length >= 3 && (
-              <div className="text-red-600 mt-1">Portfolio limit reached (3/3). Remove existing items to upload new ones.</div>
+              <div className="text-destructive mt-1">Portfolio limit reached (3/3). Remove existing items to upload new ones.</div>
             )}
             {portfolioList.length < 3 && portfolioList.length > 0 && (
-              <div className="text-blue-600 mt-1">Items uploaded: {portfolioList.length}/3</div>
+              <div className="text-blue-500 dark:text-blue-400 mt-1">Items uploaded: {portfolioList.length}/3</div>
             )}
           </div>
         </div>
         
         {/* Thumbnail upload section */}
         <div className="mt-4">
-          <label className="block font-semibold mb-1">Choose Thumbnail (Optional)</label>
+          <label className="block font-semibold mb-1 text-foreground">Choose Thumbnail (Optional)</label>
           <div className="flex items-center gap-2">
             <input
               title="Upload a Thumbnail"
@@ -317,7 +323,7 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
               accept="image/*"
               onChange={handleThumbnailUpload}
               disabled={uploading || disabled || thumbnailUploading}
-              className="block disabled:opacity-50 flex-1"
+              className="block disabled:opacity-50 flex-1 text-foreground file:bg-muted file:text-foreground file:border-0 file:py-1.5 file:px-3 file:rounded-md file:mr-3 hover:file:bg-accent hover:file:text-accent-foreground transition-colors cursor-pointer"
             />
             {thumbnailUrl && (
               <button
@@ -332,7 +338,7 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
             )}
           </div>
           {thumbnailUploading && (
-            <div className="text-sm text-gray-600 mt-1">Uploading thumbnail...</div>
+            <div className="text-sm text-muted-foreground mt-1">Uploading thumbnail...</div>
           )}
           {thumbnailUrl && !thumbnailUploading && (
             <div className="mt-2">
@@ -343,21 +349,21 @@ const PortfolioEditorDialog: React.FC<PortfolioEditorDialogProps> = ({
               />
             </div>
           )}
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="text-xs text-muted-foreground mt-1">
             Optional: Upload a custom thumbnail for this project. If not provided, the main image will be used.
           </div>
         </div>
         <div className="mt-4">
-          <label className="block font-semibold mb-1">Or add a project link</label>
+          <label className="block font-semibold mb-1 text-foreground">Or add a project link</label>
           <input
             type="url"
             value={linkURL}
             onChange={e => setLinkURL(e.target.value)}
             placeholder="https://yourproject.com"
-            className="px-2 py-1 border rounded w-full"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={uploading || disabled}
           />
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="text-xs text-muted-foreground mt-1">
             Add an accessible link to your project (e.g., GitHub, Behance, live website).
           </div>
         </div>
