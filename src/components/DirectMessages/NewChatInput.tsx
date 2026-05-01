@@ -2,9 +2,14 @@ import { useEffect, useState, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { Loader2, Paperclip, Send } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
+import { directMessagesService } from "@/services/directMessagesService"
+import { useMessagingStore } from "@/stores/messagingStore"
+import { useToast } from "@/hooks/use-toast"
+import { compressImage } from "@/lib/utils"
+import EmojiPickerButton from "../EmojiPicker"
 
 interface RecipientInputProps {
   onStartChat: (user: UserListItem) => void
