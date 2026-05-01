@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils"
 import { useMessagingStore } from "@/stores/messagingStore"
 import { formatTimestamp } from "@/lib/utils"
 import EmojiPickerButton from "../EmojiPicker"
+import { supabase } from "@/integrations/supabase/client"
+import { compressImage } from "@/lib/utils"
 
 interface ConversationViewProps {
   otherUserId: string
@@ -95,19 +97,60 @@ const ConversationView: React.FC<ConversationViewProps> = ({
   }, [messages.length])
 
   const handleSend = async () => {
-    if (!user || (!content.trim() && !file) || sending) return
+  if (!user || (!content.trim() && !file) || sending) return
 
-    setSending(true)
+  setSending(true)
 
-    let image_url: string | undefined = undefined
-    let image_type: "image" | "pdf" | null = null
+  let image_url: string | undefined = undefined
+  let image_type: "image" | "pdf" | null = null
 
+  try {
+    //Upload file to Supabase Storage
     if (file) {
-      // TEMP: replace with Supabase upload later
-      image_url = URL.createObjectURL(file)
+      let fileToUpload = file
+
+      //compress only images
+      if (file.type.startsWith("image/")) {
+        try {
+          fileToUpload = await compressImage(file)
+        } catch (err) {
+          console.warn("Compression failed, using original file", err)
+        }
+      }
+      //max file size
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Max size is 10MB",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `chat/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("uploads")
+        .upload(filePath, fileToUpload, {
+          contentType: fileToUpload.type,
+        })
+
+      if (uploadError) {
+        console.error("UPLOAD ERROR:", uploadError)
+        throw uploadError
+      }
+
+      const { data } = supabase.storage
+        .from("uploads")
+        .getPublicUrl(filePath)
+
+      image_url = data.publicUrl
       image_type = file.type.startsWith("image") ? "image" : "pdf"
     }
 
+    //Save message in DB
     const { data, error } = await directMessagesService.sendMessage({
       sender_id: user.id,
       recipient_id: otherUserId,
@@ -116,24 +159,23 @@ const ConversationView: React.FC<ConversationViewProps> = ({
       image_type,
     })
 
-    if (error) {
-      toast({
-        title: "Failed to send message",
-        description: error.message,
-        variant: "destructive",
-      })
-      setSending(false)
-      return
-    }
+    if (error) throw error
 
     if (data) {
       addMessageToStore(data)
       setContent("")
       setFile(null)
     }
-
-    setSending(false)
+  } catch (err: any) {
+    toast({
+      title: "Send failed",
+      description: err.message,
+      variant: "destructive",
+    })
   }
+
+  setSending(false)
+}
 
   if (loading) {
     return (
@@ -211,7 +253,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                       <img
                         src={msg.image_url}
                         alt="attachment"
-                        className="mt-2 max-h-60 rounded-md"
+                        className="mt-2 max-h-60 rounded-md p-0 m-0"
                       />
                     )}
 

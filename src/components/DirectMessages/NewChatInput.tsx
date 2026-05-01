@@ -2,12 +2,14 @@ import { useEffect, useState, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Loader2, Paperclip } from "lucide-react"
+import { Loader2, Paperclip, Send } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { directMessagesService } from "@/services/directMessagesService"
 import { useMessagingStore } from "@/stores/messagingStore"
 import { useToast } from "@/hooks/use-toast"
+import { compressImage } from "@/lib/utils"
+import EmojiPickerButton from "../EmojiPicker"
 
 interface RecipientInputProps {
   onStartChat: (user: UserListItem) => void
@@ -39,7 +41,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ✅ Close dropdown outside click
+  // Close dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (!wrapperRef.current?.contains(e.target as Node)) {
@@ -50,7 +52,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // ✅ Debounce search
+  // Debounce search
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!query.trim()) {
@@ -95,26 +97,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
     setOpen(false)
   }
 
-  // ✅ Upload file to Supabase
-  const uploadFile = async (file: File) => {
-    const ext = file.name.split(".").pop()
-    const fileName = `${Date.now()}.${ext}`
-    const filePath = `chat/${fileName}`
-
-    const { error } = await supabase.storage
-      .from("uploads")
-      .upload(filePath, file)
-
-    if (error) throw error
-
-    const { data } = supabase.storage
-      .from("uploads")
-      .getPublicUrl(filePath)
-
-    return data.publicUrl
-  }
-
-  // ✅ SEND MESSAGE + FILE
+  // SEND MESSAGE
   const handleStart = async () => {
     if (!selectedUser || !currentUserId) return
 
@@ -124,13 +107,45 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
       let image_url: string | undefined
       let image_type: "image" | "pdf" | null = null
 
-      // Upload file if exists
       if (file) {
-        image_url = await uploadFile(file)
+        let fileToUpload = file
+
+        if (file.type.startsWith("image/")) {
+          try {
+            fileToUpload = await compressImage(file)
+          } catch {}
+        }
+
+        if (fileToUpload.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: "Max size is 10MB",
+            variant: "destructive",
+          })
+          setCreating(false)
+          return
+        }
+
+        const fileExt = file.name.split(".").pop()
+        const fileName = `${currentUserId}-${Date.now()}.${fileExt}`
+        const filePath = `chat/${fileName}`
+
+        const { error } = await supabase.storage
+          .from("uploads")
+          .upload(filePath, fileToUpload, {
+            contentType: fileToUpload.type,
+          })
+
+        if (error) throw error
+
+        const { data } = supabase.storage
+          .from("uploads")
+          .getPublicUrl(filePath)
+
+        image_url = data.publicUrl
         image_type = file.type.startsWith("image") ? "image" : "pdf"
       }
 
-      // Send if message or file exists
       if (message.trim() || image_url) {
         const { data, error } = await directMessagesService.sendMessage({
           sender_id: currentUserId,
@@ -141,13 +156,9 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
         })
 
         if (error) throw error
-
-        if (data) {
-          addMessageToStore(data)
-        }
+        if (data) addMessageToStore(data)
       }
 
-      // Open chat
       await onStartChat(selectedUser)
 
       // Reset
@@ -155,10 +166,9 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
       setQuery("")
       setSelectedUser(null)
       setFile(null)
-
     } catch (err: any) {
       toast({
-        title: "Upload failed",
+        title: "Send failed",
         description: err.message,
         variant: "destructive",
       })
@@ -168,16 +178,15 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
   }
 
   return (
-    <div ref={wrapperRef} className="flex flex-col gap-4 p-4">
-
-      {/* TITLE */}
-      <h2 className="text-center text-lg font-semibold">
-        Create New Message
-      </h2>
+    <div
+      ref={wrapperRef}
+      className="w-full max-w-md space-y-4 rounded-xl border bg-white p-4 shadow-sm"
+    >
+      <h2 className="text-center text-lg font-semibold">New Message</h2>
 
       {/* RECIPIENT */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium">Recipient</label>
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">Recipient</label>
 
         <div className="relative">
           <Input
@@ -191,8 +200,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
           />
 
           {open && (
-            <div className="absolute left-0 right-0 z-50 mt-1 max-h-52 overflow-y-auto rounded-md border bg-white shadow-md">
-              
+            <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border bg-white shadow-md">
               {loading && (
                 <div className="flex justify-center p-3">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -210,7 +218,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
                   <button
                     key={user.id}
                     onClick={() => handleSelectUser(user)}
-                    className="flex w-full items-center gap-3 p-3 hover:bg-muted text-left"
+                    className="flex w-full items-center gap-3 px-3 py-2 hover:bg-muted"
                   >
                     <Avatar className="h-7 w-7">
                       <AvatarImage src={user.avatar ?? ""} />
@@ -228,88 +236,86 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
       </div>
 
       {/* MESSAGE */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium">Message</label>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type your message..."
+        className="min-h-[100px] w-full resize-none rounded-md border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      />
 
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          className="min-h-[120px] w-full resize-none rounded-md border p-3 text-sm outline-none focus:ring-2 focus:ring-primary"
-          placeholder="Type your message..."
-        />
-      </div>
-
-      {/* FILE PREVIEW */}
-      {file && (
-        <div className="text-xs text-muted-foreground">
-          Attached: {file.name}
-        </div>
-      )}
-
-      {/* ACTIONS */}
-      <div className="flex items-center justify-between pt-2">
-
-        {/* FILE INPUT */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          accept="image/*,application/pdf"
-          onChange={(e) => {
-            const selected = e.target.files?.[0]
-            if (!selected) return
-
-            if (
-              !selected.type.startsWith("image") &&
-              selected.type !== "application/pdf"
-            ) {
-              toast({
-                title: "Invalid file",
-                description: "Only images and PDFs allowed",
-                variant: "destructive",
-              })
-              return
-            }
-
-            setFile(selected)
-          }}
-        />
-
-        {/* ATTACH BUTTON */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white"
-        >
-          <Paperclip className="h-4 w-4" />
-        </button>
-
-        {/* ACTION BUTTONS */}
+      {/* ACTION BAR */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setQuery("")
-              setSelectedUser(null)
-              setMessage("")
-              setFile(null)
-            }}
-          >
-            Cancel
-          </Button>
+          <EmojiPickerButton
+            onSelect={(emoji) => setMessage((prev) => prev + emoji)}
+          />
 
-          <Button
-            disabled={!selectedUser || creating}
-            onClick={handleStart}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted hover:bg-muted/70"
           >
-            {creating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Send"
-            )}
-          </Button>
+            <Paperclip className="h-4 w-4" />
+          </button>
+
+             {file && (
+                <div className="rounded-md px-3 py-2 text-xs  flex justify-between items-center">
+                  <span className="truncate">{file.name}</span>
+
+                  <button
+                    onClick={() => setFile(null)}
+                    className="text-red-400 hover:underline ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+             )}
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*,application/pdf"
+            onChange={(e) => {
+              const selected = e.target.files?.[0]
+              if (!selected) return
+
+              if (
+                !selected.type.startsWith("image") &&
+                selected.type !== "application/pdf"
+              )
+              {
+                toast({
+                  title: "Invalid file",
+                  description: "Only images and PDFs allowed",
+                  variant: "destructive",
+                })
+                return
+              }
+
+              setFile(selected)
+
+              //  TOAST
+              toast({
+                title: "File attached",
+                description: selected.name,
+              })
+            }}
+          />
         </div>
+
+        <Button
+          size="icon"
+          disabled={!selectedUser || creating}
+          onClick={handleStart}
+        >
+          {creating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+        </Button>
       </div>
+
     </div>
   )
 }
