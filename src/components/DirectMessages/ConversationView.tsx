@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils"
 import { useMessagingStore } from "@/stores/messagingStore"
 import { formatTimestamp } from "@/lib/utils"
 import EmojiPickerButton from "../EmojiPicker"
+import { supabase } from "@/integrations/supabase/client"
+import { compressImage } from "@/lib/utils"
 
 interface ConversationViewProps {
   otherUserId: string
