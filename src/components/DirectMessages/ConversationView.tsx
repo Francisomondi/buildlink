@@ -13,6 +13,7 @@ import { formatTimestamp } from "@/lib/utils"
 import EmojiPickerButton from "../EmojiPicker"
 import { supabase } from "@/integrations/supabase/client"
 import { compressImage } from "@/lib/utils"
+import { MoreVertical } from "lucide-react"
 
 interface ConversationViewProps {
   otherUserId: string

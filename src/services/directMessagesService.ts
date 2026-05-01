@@ -60,17 +60,17 @@ export const directMessagesService = {
     return { data, error }
   },
 
-  // ✅ DELETE MESSAGE
-  async removeMessage(messageId: string) {
-    const { error } = await supabase
-      .from("direct_messages")
-      .delete()
-      .eq("id", messageId)
+  //DELETE MESSAGE
+async deleteMessage(messageId: string) {
+  const { error } = await supabase
+    .from("direct_messages")
+    .delete()
+    .eq("id", messageId)
 
-    return { error }
-  },
+  return { error }
+},
 
-  // ✅ UPDATE MESSAGE
+  //UPDATE MESSAGE
   async updateMessage({
     id,
     content,
