@@ -180,7 +180,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
   return (
     <div
       ref={wrapperRef}
-      className="w-full max-w-md space-y-4 rounded-xl border bg-white p-4 shadow-sm"
+      className="w-full max-w-md space-y-4 rounded-xl border bg-card p-4 shadow-sm"
     >
       <h2 className="text-center text-lg font-semibold">New Message</h2>
 
@@ -200,7 +200,7 @@ export default function RecipientInput({ onStartChat }: RecipientInputProps) {
           />
 
           {open && (
-            <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border bg-white shadow-md">
+            <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
               {loading && (
                 <div className="flex justify-center p-3">
                   <Loader2 className="h-4 w-4 animate-spin" />

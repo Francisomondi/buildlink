@@ -365,11 +365,13 @@ const confirmAction = (type: string) => {
         </CardContent>
       </Card>
 
-      <AboutActivitySection
-        publicProfile
-        profile={profile}
-        userPosts={userPosts}
-      />
+      {isOwner && (
+        <AboutActivitySection
+          publicProfile
+          profile={profile}
+          userPosts={userPosts}
+        />
+      )}
 
       <ProfileSkillsSection profile={profile} />
       <PortfolioSection profile={profile} />

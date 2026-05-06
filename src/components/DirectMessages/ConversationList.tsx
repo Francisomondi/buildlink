@@ -150,7 +150,7 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
           <div key={u.id}>
           <button
             onClick={() => onSelectUser(u)}
-            className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-100 transition rounded-lg"
+            className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-muted transition rounded-lg"
           >
             <Avatar className="h-10 w-10">
               <AvatarImage src={u.avatar} alt={u.name} />
@@ -174,7 +174,7 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
           { /* message list seperator */}
           {index < users.length - 1 && (
                     <div className="px-4">
-                        <hr className="bg-[#a51e06] opacity-20 h-[2px]" />
+                        <hr className="border-border opacity-50" />
                     </div>
                 )}
             </div>
