@@ -132,7 +132,7 @@ const FloatingMessagingWidget: React.FC = () => {
           {/* MODAL CONTENT */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`relative bg-[#f0f2f5] border rounded-2xl shadow-2xl transform transition-all duration-300 w-full max-w-md mx-2 ${
+            className={`relative bg-background border rounded-2xl shadow-2xl transform transition-all duration-300 w-full max-w-md mx-2 ${
               isMinimized
                 ? "h-12 scale-95 opacity-90"
                 : "h-[85vh] max-h-[600px]"
@@ -143,7 +143,7 @@ const FloatingMessagingWidget: React.FC = () => {
             }`}
           >
             {/* HEADER */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white border-b rounded-t-2xl">
+            <div className="flex items-center justify-between px-3 py-2 bg-card border-b rounded-t-2xl">
               <div className="flex items-center gap-2 flex-1">
                 {selectedUser && (
                   <Button variant="ghost" size="icon" onClick={handleBack}>
@@ -204,7 +204,7 @@ const FloatingMessagingWidget: React.FC = () => {
 
             {/* TABS */}
             {!selectedUser && (
-              <div className="flex bg-white border-b">
+              <div className="flex bg-card border-b">
                 <button
                   onClick={() => setActiveTab("inbox")}
                   className={`flex-1 py-2 text-sm font-semibold transition ${
