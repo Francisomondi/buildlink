@@ -205,7 +205,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
     <div className="flex h-full flex-col">
 
       {/* MESSAGES */}
-      <ScrollArea className="flex-1 bg-[#efeae2] px-2">
+      <ScrollArea className="flex-1 bg-muted/20 px-2">
         <div className="space-y-3">
           {conversationItems.map((item) => {
             if (item.type === "separator") {
@@ -235,7 +235,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                       </button>
 
                       {openMenuId === msg.id && (
-                        <div className="absolute right-0 mt-1 w-24 bg-white shadow border rounded text-xs">
+                        <div className="absolute right-0 mt-1 w-24 bg-popover shadow border rounded text-xs">
                           <button
                             onClick={() => {
                               setEditingId(msg.id)
@@ -260,7 +260,9 @@ const ConversationView: React.FC<ConversationViewProps> = ({
                   <div
                     className={cn(
                       "rounded-lg px-3 py-2",
-                      isOwn ? "bg-primary text-white" : "bg-white"
+                      isOwn
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-card text-card-foreground border shadow-sm"
                     )}
                   >
                     {msg.content && <p className="text-sm">{msg.content}</p>}
@@ -312,7 +314,7 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
         {/* ✅ FIXED FILE PREVIEW (WHITE) */}
         {file && (
-          <div className="mt-2 flex justify-between text-xs bg-white border px-2 py-1 rounded shadow-sm">
+          <div className="mt-2 flex justify-between text-xs bg-muted border px-2 py-1 rounded shadow-sm">
             <span className="truncate">{file.name}</span>
             <button onClick={() => setFile(null)} className="text-red-500">
               Remove
