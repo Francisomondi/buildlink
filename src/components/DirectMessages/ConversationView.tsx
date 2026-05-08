@@ -206,16 +206,25 @@ const ConversationView: React.FC<ConversationViewProps> = ({
 
                         {/* INLINE EDIT TEXTAREA */}
                         <Textarea
-                          value={editingText}
-                          onChange={(e) => setEditingText(e.target.value)}
-                          autoFocus
-                          className={cn(
-                            "w-full resize-none bg-transparent p-0 text-sm",
-                            "border-none focus-visible:ring-0 focus-visible:ring-offset-0",
-                            "outline-none",
-                            isOwn ? "text-white placeholder:text-white/60" : "text-black"
-                          )}
-                        />
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        autoFocus
+                        className={cn(
+                          "w-full resize-none bg-transparent p-0 text-sm",
+                          "border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none",
+                          isOwn ? "text-white placeholder:text-white/60" : "text-black"
+                        )}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            handleEdit(msg.id)
+                          }
+
+                          if (e.key === "Escape") {
+                            setEditingId(null)
+                          }
+                        }}
+                      />
 
                         {/* INLINE ACTIONS */}
                         <div className="flex justify-end gap-2 text-[11px] mt-1">
@@ -309,12 +318,18 @@ const ConversationView: React.FC<ConversationViewProps> = ({
             <Paperclip className="h-4 w-4" />
           </Button>
 
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 min-h-[50px] resize-none"
-          />
+         <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 min-h-[50px] resize-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              handleSend()
+            }
+          }}
+        />
 
           <Button onClick={handleSend} size="icon">
             {sending ? (
