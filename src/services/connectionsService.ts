@@ -18,7 +18,37 @@ export const connectionsService = {
       )
       .maybeSingle();
 
-    // Prevent duplicates
+    // =====================================
+    // COMPANY FOLLOW FIX
+    // =====================================
+    // If a pending connection already exists
+    // for a company, convert it to accepted
+    if (existingConnection && isCompany) {
+
+      // Already following
+      if (existingConnection.status === "accepted") {
+        return {
+          data: existingConnection,
+          error: null,
+        };
+      }
+
+      // Convert pending -> accepted
+      const { data, error } = await supabase
+        .from("connections")
+        .update({
+          status: "accepted",
+        })
+        .eq("id", existingConnection.id)
+        .select()
+        .single();
+
+      return { data, error };
+    }
+
+    // =====================================
+    // NORMAL USER DUPLICATE PROTECTION
+    // =====================================
     if (existingConnection) {
       return {
         data: existingConnection,
@@ -26,9 +56,9 @@ export const connectionsService = {
       };
     }
 
-    // IMPORTANT FIX:
-    // Companies = accepted immediately
-    // Users = pending request
+    // =====================================
+    // CREATE NEW CONNECTION
+    // =====================================
     const status = isCompany
       ? "accepted"
       : "pending";

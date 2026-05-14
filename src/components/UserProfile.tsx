@@ -33,7 +33,8 @@ const UserProfile = ({ userId, onClose }: UserProfileProps) => {
 	const [connectionRow, setConnectionRow] = useState<any | null>(null)
 
 	// Company detection
-	const isCompany = profile?.user_type === "company"
+	const isCompany =
+	profile?.user_type?.toLowerCase() === "company"
 
 	useEffect(() => {
 		loadProfile()
