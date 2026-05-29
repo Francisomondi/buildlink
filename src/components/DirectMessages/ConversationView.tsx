@@ -11,6 +11,7 @@ import {
   Paperclip,
   MoreVertical,
   Plus,
+  PlusSquare,
 } from "lucide-react"
 import { useMessagingStore } from "@/stores/messagingStore"
 import { formatTimestamp, compressImage, cn } from "@/lib/utils"
@@ -31,6 +32,8 @@ type ConversationItem =
 const addDateSeparators = (messages: Message[]): ConversationItem[] => {
   const items: ConversationItem[] = []
   let lastDate: string | null = null
+
+ 
 
   const sorted = [...messages].sort(
     (a, b) =>
@@ -120,6 +123,9 @@ const ConversationView: React.FC<
     () => addDateSeparators(messages),
     [messages]
   )
+
+   const [selectedUser, setSelectedUser] = useState<ConversationItem | null>(null)
+  const [activeTab, setActiveTab] = useState<"inbox" | "chat">("chat")
 
   useEffect(() => {
     if (!user || !otherUserId) return
@@ -488,13 +494,17 @@ const ConversationView: React.FC<
         <div className="flex items-end gap-2">
 
           {/* NEW BUTTON */}
-          <Button
-            size="icon"
-            variant="secondary"
-            className="rounded-full"
-          >
-            <Plus className="h-5 w-5" />
-          </Button>
+            <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setActiveTab("chat")
+                              setSelectedUser(null)
+                            }}
+                            title="New message"
+                          >
+                            <PlusSquare className="h-4 w-4" />
+                          </Button>
 
           {/* EMOJI */}
           <EmojiPickerButton
