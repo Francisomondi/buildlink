@@ -106,6 +106,7 @@ const Index: React.FC<IndexProps> = ({ customContent, showNavigation = true, sho
 						<ResponsiveNavigation loading={loading} />
 					</div>
 				)}
+				{/* Main Content Area */}
 				<div className={`col-span-12 md:col-span-7 ${showNavigation ? "md:col-start-4" : ""}`}>
 					{/* Content Filters */}
 					{shouldShowFilters && (
