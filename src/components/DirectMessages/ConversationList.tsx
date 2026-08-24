@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare } from 'lucide-react';
 import { useMessagingStore } from '@/stores/messagingStore';
-import { formatTimestamp } from '@/lib/utils';
+import { formatTimestamp, cn } from '@/lib/utils';
 
 interface UserListItem {
   id: string;
@@ -27,19 +27,22 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // CATEGORY TAB
-  const [activeTab, setActiveTab] = useState<
-    'general' | 'interests' | 'submissions'
-  >('general');
+  
+ 
 
   // STORE
   const messagesByUserId = useMessagingStore(
     (state) => state.messagesByUserId
   );
 
-  const fetchMessagesFromStore = useMessagingStore(
-    (state) => state.fetchMessages
+  const unreadCounts = useMessagingStore(
+    (state) => state.unreadCounts
   );
+
+  // Local state for last message snippets (avoids N+1 prefetch)
+  const [lastMessages, setLastMessages] = useState<
+    Record<string, Message>
+  >({});
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -87,10 +90,6 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
               id: otherUserId,
               name: profile.full_name,
               avatar: profile.avatar,
-
-              // OPTIONAL CATEGORY
-              category:
-                c.category || 'general',
             };
           }
         } catch (e) {}
@@ -99,7 +98,6 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
           id: otherUserId,
           name: 'Unknown User',
           avatar: undefined,
-          category: 'general',
         };
       });
 
@@ -110,17 +108,17 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
 
       setUsers(uniqueUsers);
 
-      setLoading(false);
+      // SINGLE BATCHED QUERY for last messages (replaces N+1 prefetch)
+      const { data: lastMsgs } =
+        await directMessagesService.getLastMessagesForUser(
+          user.id
+        );
 
-      // PREFETCH MESSAGES
-      uniqueUsers.forEach((u) => {
-        if (user && u.id) {
-          fetchMessagesFromStore(
-            user.id,
-            u.id
-          );
-        }
-      });
+      if (lastMsgs) {
+        setLastMessages(lastMsgs);
+      }
+
+      setLoading(false);
     };
 
     fetchConversations();
@@ -130,31 +128,34 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
   const getLastMessageSnippet = (
     otherUserId: string
   ): string => {
+    // Prefer batched lastMessages, fall back to store
+    const lastMsg = lastMessages[otherUserId];
     const conversationMessages =
       messagesByUserId[otherUserId];
 
-    if (
-      !conversationMessages ||
-      conversationMessages.length === 0
-    ) {
+    const message =
+      lastMsg ||
+      (conversationMessages &&
+        conversationMessages.length > 0
+        ? conversationMessages[
+            conversationMessages.length - 1
+          ]
+        : null);
+
+    if (!message) {
       return 'Click to open conversation';
     }
 
-    const lastMessage =
-      conversationMessages[
-        conversationMessages.length - 1
-      ];
-
     const prefix =
-      lastMessage.sender_id === user?.id
+      message.sender_id === user?.id
         ? 'You: '
         : '';
 
     const contentSnippet =
-      lastMessage.content.length > 40
-        ? lastMessage.content.substring(0, 40) +
+      message.content.length > 40
+        ? message.content.substring(0, 40) +
           '...'
-        : lastMessage.content;
+        : message.content;
 
     return prefix + contentSnippet;
   };
@@ -163,32 +164,31 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
   const getLastMessageTimestamp = (
     otherUserId: string
   ): string | null => {
+    const lastMsg = lastMessages[otherUserId];
     const conversationMessages =
       messagesByUserId[otherUserId];
 
-    if (
-      !conversationMessages ||
-      conversationMessages.length === 0
-    ) {
+    const message =
+      lastMsg ||
+      (conversationMessages &&
+        conversationMessages.length > 0
+        ? conversationMessages[
+            conversationMessages.length - 1
+          ]
+        : null);
+
+    if (!message) {
       return null;
     }
 
-    const lastMessage =
-      conversationMessages[
-        conversationMessages.length - 1
-      ];
-
     return formatTimestamp(
-      lastMessage.created_at,
+      message.created_at,
       false
     );
   };
 
   // FILTER USERS
-  const filteredUsers = users.filter(
-    (u: any) =>
-      (u.category || 'general') === activeTab
-  );
+ 
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -202,52 +202,11 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
           </h2>
 
           <span className="text-xs text-muted-foreground">
-            {filteredUsers.length} chats
+            {users.length} chats
           </span>
         </div>
 
-        {/* CATEGORY TABS */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-
-          <button
-            onClick={() =>
-              setActiveTab('interests')
-            }
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-              activeTab === 'interests'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            Interests
-          </button>
-
-          <button
-            onClick={() =>
-              setActiveTab('general')
-            }
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-              activeTab === 'general'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            General
-          </button>
-
-          <button
-            onClick={() =>
-              setActiveTab('submissions')
-            }
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-              activeTab === 'submissions'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            Submissions
-          </button>
-        </div>
+       
       </div>
 
       {/* LOADING */}
@@ -267,7 +226,7 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
             </div>
           ))}
         </div>
-      ) : filteredUsers.length === 0 ? (
+      ) : users.length === 0 ? (
 
         // EMPTY STATE
         <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
@@ -287,7 +246,7 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
         <ScrollArea className="flex-1">
           <div className="space-y-2 p-2">
 
-            {filteredUsers.map((u) => {
+            {users.map((u) => {
 
               const timestamp =
                 getLastMessageTimestamp(u.id);
@@ -295,29 +254,46 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
               const lastMessage =
                 getLastMessageSnippet(u.id);
 
+              const unreadCount =
+                unreadCounts[u.id] || 0;
+
+              const hasUnread = unreadCount > 0;
+
               return (
                 <button
                   key={u.id}
                   onClick={() =>
                     onSelectUser(u)
                   }
-                  className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:bg-muted/40"
+                  className={cn(
+                    "group flex w-full items-start gap-3 rounded-xl border p-3 text-left transition",
+                    hasUnread
+                      ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
+                      : "border-border bg-card hover:bg-muted/40"
+                  )}
                 >
 
                   {/* AVATAR */}
-                  <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage
-                      src={u.avatar}
-                      alt={u.name}
-                    />
+                  <div className="relative shrink-0">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={u.avatar}
+                        alt={u.name}
+                      />
 
-                    <AvatarFallback>
-                      {u.name
-                        ?.split(' ')
-                        .map((n) => n[0])
-                        .join('') || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
+                      <AvatarFallback>
+                        {u.name
+                          ?.split(' ')
+                          .map((n) => n[0])
+                          .join('') || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Unread dot indicator */}
+                    {hasUnread && (
+                      <span className="absolute right-0 top-0 h-3 w-3 rounded-full bg-primary border-2 border-card" />
+                    )}
+                  </div>
 
                   {/* MESSAGE BODY */}
                   <div className="min-w-0 flex-1">
@@ -325,20 +301,39 @@ const ConversationsList: React.FC<ConversationsListProps> = ({
                     {/* TOP */}
                     <div className="flex items-start justify-between gap-2">
 
-                      <h3 className="truncate text-sm font-semibold text-foreground">
+                      <h3 className={cn(
+                        "truncate text-sm",
+                        hasUnread
+                          ? "font-bold text-foreground"
+                          : "font-semibold text-foreground"
+                      )}>
                         {u.name ||
                           'Unknown User'}
                       </h3>
 
-                      {timestamp && (
-                        <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {timestamp}
-                        </span>
-                      )}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {hasUnread && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+
+                        {timestamp && (
+                          <span className={cn(
+                            "text-[10px]",
+                            hasUnread ? "text-primary font-medium" : "text-muted-foreground"
+                          )}>
+                            {timestamp}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* LAST MESSAGE */}
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                    <p className={cn(
+                      "mt-1 truncate text-xs",
+                      hasUnread ? "text-foreground font-medium" : "text-muted-foreground"
+                    )}>
                       {lastMessage}
                     </p>
                   </div>

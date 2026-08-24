@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { postsService } from "@/services/postsService"
 import { profileService } from "@/services/profileService"
@@ -17,6 +17,7 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
 import { useDataSaver } from "@/contexts/DataSaverContext"
 import { UserProfile as UserProfileType } from "@/types"
 import UserProfile from "../UserProfile"
+import { supabase } from "@/integrations/supabase/client"
 
 interface HomeFeedProps {
 	activeFilter: string
@@ -63,19 +64,10 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 		},
 	})
 
-	// SINGLE useQuery declaration with debugging
 	const { data: statsData, isLoading: isLoadingStats } = useQuery({
 		queryKey: ["profileStats"],
 		queryFn: profileService.getStats,
 		staleTime: 5 * 60 * 1000, // 5 minutes
-		onSuccess: (data) => {
-			console.log("Stats data received:", data)
-			console.log("Professionals count:", data?.data?.professionalsCount)
-			console.log("Companies count:", data?.data?.companiesCount)
-		},
-		onError: (error) => {
-			console.error("Error fetching stats:", error)
-		},
 	})
 
 	const handleLike = useCallback(
@@ -89,10 +81,30 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 				return
 			}
 
+			// Save previous state for rollback
+			const prevInteraction = postInteractions[postId]
+			const prevPost = posts.find((p) => p.id === postId)
+			const prevLiked = prevInteraction?.liked ?? false
+			const newLiked = !prevLiked
+
+			// Optimistic update
+			updatePostInteraction(postId, { liked: newLiked })
+			updatePostCounts(postId, {
+				likes_count: newLiked
+					? (prevPost?.likes_count || 0) + 1
+					: Math.max(0, (prevPost?.likes_count || 0) - 1),
+			})
+
 			try {
-				const { error, action } = await postsService.likePost(postId, user.id)
+				const { error } =
+    			await postsService.likePost(postId, user.id)
 
 				if (error) {
+					// Rollback on error
+					updatePostInteraction(postId, { liked: prevLiked })
+					updatePostCounts(postId, {
+						likes_count: prevPost?.likes_count || 0,
+					})
 					toast({
 						title: "Error",
 						description: "Failed to update like",
@@ -101,26 +113,127 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 					return
 				}
 
-				// Update interactions and counts using the hook functions
-				updatePostInteraction(postId, { liked: action === "liked" })
-				updatePostCounts(postId, {
-					likes_count: action === "liked" ? (posts.find((p) => p.id === postId)?.likes_count || 0) + 1 : Math.max(0, (posts.find((p) => p.id === postId)?.likes_count || 0) - 1),
-				})
+				// Sync with actual DB count via getPostInteractions
+				
+			const { data: counts } = await postsService.getPostCounts(postId);
 
-				toast({
-					title: "Success",
-					description: action === "liked" ? "Post liked!" : "Post unliked!",
-				})
+			if (counts) {
+			updatePostCounts(postId, {
+				likes_count: counts.likes_count,
+			});
+		}
 			} catch (error) {
+				// Rollback on exception
+				updatePostInteraction(postId, { liked: prevLiked })
+				updatePostCounts(postId, {
+					likes_count: prevPost?.likes_count || 0,
+				})
 				console.error("Error handling like:", error)
 			}
 		},
-		[user, toast, updatePostInteraction, updatePostCounts, posts],
+		[user, toast, updatePostInteraction, updatePostCounts, postInteractions, posts],
 	)
 
 	const handleComment = (postId: string) => {
 		setCommentsDialog({ isOpen: true, postId })
 	}
+
+	const handleCommentAdded = useCallback(
+		async (postId: string) => {
+			// Optimistic update first for immediate feedback
+			const post = posts.find((p) => p.id === postId)
+			if (post) {
+				updatePostCounts(postId, {
+					comments_count: (post.comments_count || 0) + 1,
+				})
+			}
+
+			// Sync with actual DB count (trigger maintains the value)
+			try {
+				const { data: counts } = await postsService.getPostCounts(postId)
+				if (counts) {
+					updatePostCounts(postId, {
+						comments_count: counts.comments_count,
+					})
+				}
+			} catch (error) {
+				console.error("Error syncing comment count:", error)
+			}
+		},
+		[posts, updatePostCounts],
+	)
+
+	const handleShare = useCallback(
+		async (postId: string) => {
+			if (!user) {
+				toast({
+					title: "Authentication required",
+					description: "Please sign in to share posts",
+					variant: "destructive",
+				})
+				return
+			}
+
+			// Optimistic update
+			const prevPost = posts.find((p) => p.id === postId);
+			updatePostCounts(postId, {
+				shares_count: (prevPost?.shares_count || 0) + 1,
+			});
+
+			try {
+				const { data, error } = await postsService.sharePost(postId, user.id);
+				if (error) {
+					// Rollback on error
+					updatePostCounts(postId, {
+						shares_count: prevPost?.shares_count || 0,
+					});
+					toast({
+						title: "Error",
+						description: "Failed to share post",
+						variant: "destructive",
+					})
+					return
+				}
+
+				// Try Web Share API, fall back to clipboard
+				if (navigator.share) {
+					try {
+						await navigator.share({
+							title: data.title,
+							text: data.text,
+							url: data.url,
+						})
+					} catch {
+						// User cancelled or Web Share failed - share was already recorded
+					}
+				} else {
+					await navigator.clipboard.writeText(data.url)
+					toast({
+						title: "Success",
+						description: "Post URL copied to clipboard!",
+					})
+				}
+
+				// Sync with actual DB count (trigger maintains the value)
+				try {
+					const { data: counts } = await postsService.getPostCounts(postId)
+					if (counts) {
+						updatePostCounts(postId, {
+							shares_count: counts.shares_count,
+						})
+					}
+				} catch (error) {
+					console.error("Error syncing share count:", error)
+				}
+			} catch {
+				// Rollback on exception
+				updatePostCounts(postId, {
+					shares_count: prevPost?.shares_count || 0,
+				});
+			}
+		},
+		[user, toast, posts, updatePostCounts],
+	)
 
 	const handleRepost = (post: any) => {
 		if (!user) {
@@ -132,35 +245,6 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 			return
 		}
 		setRepostDialog({ isOpen: true, post })
-	}
-
-	const handleShare = async (postId: string) => {
-		try {
-			const { data, error } = await postsService.sharePost(postId)
-
-			if (error) throw error
-
-			if (navigator.share) {
-				await navigator.share({
-					title: data.title,
-					text: data.text,
-					url: data.url,
-				})
-			} else {
-				await navigator.clipboard.writeText(data.url)
-				toast({
-					title: "Success",
-					description: "Post URL copied to clipboard!",
-				})
-			}
-		} catch (error) {
-			console.error("Error sharing post:", error)
-			toast({
-				title: "Error",
-				description: "Failed to share post",
-				variant: "destructive",
-			})
-		}
 	}
 
 	const handleUserClick = (userprofile: UserProfileType) => {
@@ -182,9 +266,67 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 		refresh()
 	}, [refresh])
 
-	const handleRepostComplete = useCallback(() => {
+	const handleRepostComplete = useCallback((action: 'reposted' | 'unreposted') => {
+		// Update reposts_count in local state
+		const repostedPost = repostDialog.post;
+		if (repostedPost) {
+			updatePostCounts(repostedPost.id, {
+				reposts_count:
+					action === 'reposted'
+						? (repostedPost.reposts_count || 0) + 1
+						: Math.max(0, (repostedPost.reposts_count || 0) - 1),
+			});
+		}
 		refresh()
-	}, [refresh])
+	}, [refresh, repostDialog.post, updatePostCounts])
+
+	// Realtime subscription: update post counts when other users interact
+	// This ensures comments_count, shares_count, etc. stay in sync across users.
+	// We use a ref to track post IDs so the subscription isn't torn down and
+	// recreated on every optimistic count update (which changes `posts` state).
+	const postIdsRef = useRef<string[]>([]);
+	postIdsRef.current = posts.map((p) => p.id);
+
+	useEffect(() => {
+		if (!posts || posts.length === 0) return;
+
+		const postIds = postIdsRef.current;
+
+		// Subscribe to changes on the posts table for the currently loaded posts
+		const channel = supabase
+			.channel(`posts-realtime-${activeFilter}`)
+			.on(
+				'postgres_changes',
+				{
+					event: 'UPDATE',
+					schema: 'public',
+					table: 'posts',
+					//filter: `id=in.(${postIds.join(',')})`,
+				},
+				(payload) => {
+  const updatedPost = payload.new as any;
+
+  if (!updatedPost) return;
+
+				// Ignore posts not currently displayed
+				if (!postIdsRef.current.includes(updatedPost.id)) return;
+
+				updatePostCounts(updatedPost.id, {
+					likes_count: updatedPost.likes_count,
+					comments_count: updatedPost.comments_count,
+					reposts_count: updatedPost.reposts_count,
+					shares_count: updatedPost.shares_count,
+				});
+				}
+			)
+			.subscribe();
+
+		return () => {
+			supabase.removeChannel(channel);
+		};
+	// Only re-subscribe when the filter changes or the set of post IDs changes
+	// (not on every optimistic count update). We use a stringified key for stable comparison.
+	}, [activeFilter, updatePostCounts, posts.length]);
 
 	if (initialLoading) {
 		return (
@@ -193,7 +335,7 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 					<div className="mb-4 flex items-start justify-between">
 						<div>
 							<h2 className="mb-2 text-2xl font-bold">Welcome to BuildLink Kenya</h2>
-							<p className="text-primary-foreground/90">Connect with professionals, discover opportunities, and grow your career in Kenya's construction industry.</p>
+							<p className="text-white">Connect with professionals, discover opportunities, and grow your career in Kenya's construction industry.</p>
 						</div>
 					</div>
 					<div className="grid grid-cols-3 gap-4">
@@ -242,7 +384,7 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 				<div className="mb-4 flex items-start justify-between">
 					<div>
 						<h2 className="mb-2 text-2xl font-bold">Welcome to BuildLink Kenya</h2>
-						<p className="text-primary-foreground/90">Connect with professionals, discover opportunities, and grow your career in Kenya's construction industry.</p>
+						<p className="text-white">Connect with professionals, discover opportunities, and grow your career in Kenya's construction industry.</p>
 					</div>
 				</div>
 				<div className="grid grid-cols-3 gap-4">
@@ -262,11 +404,7 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 			</div>
 
 			{/* Notifications Panel */}
-			{showNotifications && user && (
-				<div className="rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
-					<NotificationsList />
-				</div>
-			)}
+			{showNotifications && user && <NotificationsList />}
 
 			{/* Create Post Section */}
 			{user && (
@@ -295,6 +433,8 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 								isLiked={postInteractions[post.id]?.liked || false}
 								onLike={() => handleLike(post.id)}
 								onComment={() => handleComment(post.id)}
+								onShare={() => handleShare(post.id)}
+								onRepost={() => handleRepost(post)}
 								onPostUpdated={handlePostUpdated}
 								onPostDeleted={handlePostDeleted}
 								dataSaver={dataSaverMode}
@@ -337,11 +477,12 @@ const HomeFeed = ({ activeFilter }: HomeFeedProps) => {
 				/>
 			)}
 
-			<CommentsDialog
-				isOpen={commentsDialog.isOpen}
-				onClose={() => setCommentsDialog({ isOpen: false, postId: "" })}
-				postId={commentsDialog.postId}
-			/>
+		<CommentsDialog
+			isOpen={commentsDialog.isOpen}
+			onClose={() => setCommentsDialog({ isOpen: false, postId: "" })}
+			postId={commentsDialog.postId}
+			onCommentAdded={handleCommentAdded}
+		/>
 
 			<RepostDialog
 				isOpen={repostDialog.isOpen}

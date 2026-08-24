@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, UserPlus, Pencil, Clock, ThumbsUp } from "lucide-react"
+import {MessageCircle,UserPlus,Pencil,Clock,ThumbsUp,Eye,Users,Briefcase,Star,} from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { publicProfileService } from "@/services/publicProfileService"
 import { useToast } from "@/hooks/use-toast"
@@ -23,23 +23,11 @@ import ProfileSkillsSection from "../profile-sections/details/ProfileSkillsSecti
 import SocialMediaLinks from "./SocialMediaLinks"
 
 type ConnectionStatus =
-  | "not_connected"
-  | "pending_outgoing"
-  | "pending_incoming"
-  | "connected"
-  | "self"
-
-// ---------------------------------------------------------------------------
-// Fix #3 — Recommendation tags (placeholder until endorsement system ships).
-// Shown only to visitors viewing someone else's profile, never to the owner.
-// ---------------------------------------------------------------------------
-const RECOMMENDATION_TAGS = [
-  { label: "Great Collaborator" },
-  { label: "Highly Skilled" },
-  { label: "Reliable" },
-  { label: "Creative Thinker" },
-  { label: "Strong Communicator" },
-]
+   | "not_connected"
+   | "pending_outgoing"
+   | "pending_incoming"
+   | "connected"
+   | "self"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -72,6 +60,9 @@ const PublicProfileView: React.FC = () => {
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("not_connected")
   const [userPosts, setUserPosts] = useState<any[]>([])
+  const [profileViews, setProfileViews] = useState(0)
+  const [connectionsCount, setConnectionsCount] = useState(0)
+  const [profileCompletion, setProfileCompletion] = useState(0)
 
   const openConversation = useMessagingStore((state) => state.openConversation)
 
@@ -88,12 +79,29 @@ const PublicProfileView: React.FC = () => {
         await publicProfileService.getPublicProfile(profileId, user?.id)
       if (error || !data) throw error
       setProfile(data)
+
+      setProfileCompletion(
+        (data as any)?.profile_completion_score || 0
+      )
       const postsResult = await postsService.getPosts()
       if (postsResult.data) {
         setUserPosts(
           postsResult.data.filter((post: any) => post.author_id === profileId)
         )
       }
+      const viewsResult =
+          await publicProfileService.getProfileViews(profileId)
+
+        if (viewsResult.data) {
+          setProfileViews(viewsResult.data.length)
+        }
+
+        const connectionsResult =
+          await connectionsService.getConnections(profileId)
+
+        if (connectionsResult.data) {
+          setConnectionsCount(connectionsResult.data.length)
+        }
     } catch {
       toast({
         title: "Error",
@@ -105,160 +113,276 @@ const PublicProfileView: React.FC = () => {
     }
   }, [profileId, user, toast])
 
+  const refreshConnectionStatus = useCallback(async () => {
+    if (!user?.id || !profileId) return
+
+    if (user.id === profileId) {
+      setConnectionStatus("self")
+      return
+    }
+
+    const { data } = await connectionsService.getConnectionStatus(
+      user.id,
+      profileId
+    )
+
+    if (!data) {
+      setConnectionRow(null)
+      setConnectionStatus("not_connected")
+      return
+    }
+
+    setConnectionRow(data)
+
+    if (data.status === "accepted") {
+      setConnectionStatus("connected")
+      return
+    }
+
+    if (data.status === "pending") {
+      if (data.user_id === user.id) {
+        setConnectionStatus("pending_outgoing")
+      } else {
+        setConnectionStatus("pending_incoming")
+      }
+      return
+  }
+
+  setConnectionStatus("not_connected")
+  }, [user, profileId])
+
+  const refreshConnectionsCount = useCallback(async () => {
+  if (!profileId) return
+
+  const { data } = await connectionsService.getConnections(profileId)
+
+  //setConnectionsCount(data?.length ?? 0)
+  setConnectionsCount(
+    data?.filter(c => c.status === "accepted").length ?? 0)
+}, [profileId])
+
   useEffect(() => {
     loadPublicProfile()
   }, [loadPublicProfile])
 
   // CONNECTION STATUS
   useEffect(() => {
-    const fetchConnectionStatus = async () => {
-      if (!user?.id || !profileId) return
-      if (user.id === profileId) {
-        setConnectionStatus("self")
-        return
-      }
-      const { data } = await connectionsService.getConnectionStatus(
-        user.id,
-        profileId
-      )
-      if (!data) {
-        setConnectionStatus("not_connected")
-        return
-      }
-      setConnectionRow(data)
-      if (data.status === "accepted") {
-        setConnectionStatus("connected")
-      } else if (data.status === "pending") {
-        setConnectionStatus(
-          data.user_id === user.id ? "pending_outgoing" : "pending_incoming"
-        )
-      }
-    }
-    fetchConnectionStatus()
-  }, [user, profileId])
+    refreshConnectionStatus()
+  }, [refreshConnectionStatus])
+
+  useEffect(() => {
+  if (!profileId || isOwner) return
+
+  publicProfileService.recordProfileView(profileId)
+}, [profileId, isOwner])
 
   // ACTIONS
-  const handleConnect = async () => {
-    if (!user?.id || !profileId) return
-    const { data, error } = await connectionsService.connect(user.id, profileId)
-    if (error) {
-      toast({ title: "Error", description: "Failed to connect", variant: "destructive" })
-      return
-    }
-    setConnectionRow(data)
-    setConnectionStatus("pending_outgoing")
-    toast({ title: "Success", description: "Connection request sent" })
-  }
+const handleConnect = async () => {
+  if (!user?.id || !profileId) return;
 
-  const handleAccept = async () => {
-    if (!connectionRow?.id) return
-    const { error } = await connectionsService.acceptRequest(connectionRow.id)
-    if (error) return
-    setConnectionStatus("connected")
+  const { error } = await connectionsService.connect(
+    user.id,
+    profileId,
+    isCompanyProfile
+  );
+
+  if (error) {
     toast({
-      title: "Connected",
-      description: `You are now connected with ${profile?.full_name}`,
+      title: "Error",
+      description: isCompanyProfile
+        ? "Unable to follow."
+        : "Unable to send connection request.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  // Refresh directly from database
+  await refreshConnectionStatus();
+  await refreshConnectionsCount();
+
+  toast({
+    title: isCompanyProfile ? "Following" : "Request Sent",
+    description: isCompanyProfile
+      ? `You're now following ${profile?.full_name}.`
+      : `Connection request sent to ${profile?.full_name}.`,
+  });
+};
+
+const handleAccept = async () => {
+  if (!connectionRow?.id) return
+
+  const { error } = await connectionsService.acceptRequest(connectionRow.id)
+
+  if (error) {
+    toast({
+      title: "Error",
+      description: "Unable to accept request.",
+      variant: "destructive",
     })
+    return
   }
 
-  const handleCancelOrDecline = async () => {
-    if (!connectionRow?.id) return
-    const actionType =
-      connectionStatus === "pending_outgoing" ? "cancel" : "decline"
-    try {
-      await connectionsService.removeConnection(connectionRow.id)
-      setConnectionRow(null)
-      setConnectionStatus("not_connected")
-      toast({
-        title: "Success",
-        description: actionType === "cancel" ? "Request cancelled" : "Request declined",
-      })
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to update connection",
-        variant: "destructive",
-      })
-    }
+  await refreshConnectionStatus()
+  await refreshConnectionsCount()
+
+  toast({
+    title: "Connected",
+    description: `You are now connected with ${profile?.full_name}.`,
+  })
+}
+
+const handleCancelRequest = async () => {
+  if (!connectionRow?.id) return;
+
+  const { error } = await connectionsService.removeConnection(
+    connectionRow.id
+  );
+
+  if (error) {
+    toast({
+      title: "Error",
+      description: "Unable to cancel request.",
+      variant: "destructive",
+    });
+    return;
   }
 
-  const handleDisconnect = async () => {
-    if (!connectionRow?.id) return
-    try {
-      await connectionsService.removeConnection(connectionRow.id)
-      setConnectionRow(null)
-      setConnectionStatus("not_connected")
-      toast({
-        title: "Success",
-        description: isCompanyProfile ? "Unfollowed successfully" : "Disconnected successfully",
-      })
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to update connection",
-        variant: "destructive",
-      })
-    }
+  await refreshConnectionStatus();
+  await refreshConnectionsCount();
+
+  toast({
+    title: "Request Cancelled",
+    description: "Your connection request has been cancelled.",
+  });
+};
+
+  
+
+  
+
+const handleDisconnect = async () => {
+  if (!connectionRow?.id) return;
+
+  const { error } = await connectionsService.removeConnection(
+    connectionRow.id
+  );
+
+  if (error) {
+    toast({
+      title: "Error",
+      description: "Failed to update connection.",
+      variant: "destructive",
+    });
+    return;
   }
+
+  // Refresh directly from database
+  await refreshConnectionStatus();
+  await refreshConnectionsCount();
+
+  toast({
+    title: "Success",
+    description: isCompanyProfile
+      ? `Stopped following ${profile?.full_name}.`
+      : `Disconnected from ${profile?.full_name}.`,
+  });
+};
 
   // BUTTONS
-  const renderButtons = () => {
-    if (!user || connectionStatus === "self") return null
+const renderButtons = () => {
+  if (!user || connectionStatus === "self") return null;
 
-    const messageBtn = (
-      <Button
-        variant="outline"
-        disabled={connectionStatus !== "connected"}
-        onClick={() =>
-          openConversation?.(profileId!, profile?.full_name, profile?.avatar)
-        }
-      >
-        <MessageCircle className="mr-2 h-4 w-4" />
-        Message
-      </Button>
-    )
+  const messageBtn = (
+    <Button
+      variant="outline"
+      disabled={connectionStatus !== "connected"}
+      onClick={() =>
+        openConversation?.(
+          profileId!,
+          profile?.full_name,
+          profile?.avatar
+        )
+      }
+    >
+      <MessageCircle className="mr-2 h-4 w-4" />
+      Message
+    </Button>
+  );
 
+  // Company profiles
+  if (isCompanyProfile) {
     if (connectionStatus === "connected") {
       return (
         <>
           <Button variant="outline" onClick={handleDisconnect}>
-            {isCompanyProfile ? "Following" : "Connected"}
+            Following
           </Button>
           {messageBtn}
         </>
-      )
+      );
     }
-    if (connectionStatus === "pending_outgoing") {
-      return (
-        <>
-          <Button variant="outline" onClick={handleCancelOrDecline}>
-            Cancel Request
-          </Button>
-          {messageBtn}
-        </>
-      )
-    }
-    if (connectionStatus === "pending_incoming") {
-      return (
-        <>
-          <Button onClick={handleAccept}>Accept</Button>
-          <Button variant="outline" onClick={handleCancelOrDecline}>
-            Decline
-          </Button>
-          {messageBtn}
-        </>
-      )
-    }
+
     return (
       <>
-        <Button onClick={handleConnect}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          {connectLabel}
+        <Button variant="outline" className="border-black text-black" onClick={handleConnect}>
+          Follow
         </Button>
         {messageBtn}
       </>
-    )
+    );
   }
+
+  // Normal users
+  switch (connectionStatus) {
+    case "connected":
+      return (
+        <>
+          <Button variant="outline" onClick={handleDisconnect}>
+            Connected
+          </Button>
+          {messageBtn}
+        </>
+      );
+
+    case "pending_outgoing":
+      return (
+        <>
+          <Button
+            variant="outline"
+            onClick={handleCancelRequest}
+          >
+            Cancel Request
+          </Button>
+        </>
+      );
+
+    case "pending_incoming":
+      return (
+        <>
+          <Button onClick={handleAccept}>
+            Accept
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleCancelRequest}
+          >
+            Decline
+          </Button> 
+        </>
+      );
+
+    default:
+      return (
+        <>
+          <Button variant="outline" className="border-black text-black" onClick={handleConnect}>
+            Connect
+          </Button>
+        </>
+      );
+  }
+};
 
   // UI — loading
   if (loading) {
@@ -300,14 +424,12 @@ const PublicProfileView: React.FC = () => {
                 {/* Account type badge */}
                 <AccountTypeBadge userType={profile.user_type || "student"} />
 
-                {/* Fix #2a — Profession (students & professionals) */}
-                {!isCompanyProfile && professionDisplay && (
+                {professionDisplay && (
                   <p className="text-sm text-muted-foreground">
                     {professionDisplay}
                   </p>
                 )}
 
-                {/* Fix #2b — Years Active (companies only) */}
                 {isCompanyProfile && yearsActive && (
                   <p className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Clock className="h-3.5 w-3.5 shrink-0" />
@@ -315,27 +437,17 @@ const PublicProfileView: React.FC = () => {
                   </p>
                 )}
 
-                {/* Fix #3 — Recommendation tags (visitors only, never owner) */}
-                {!isOwner && (
-                  <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
-                    {RECOMMENDATION_TAGS.slice(0, 3).map((tag) => (
-                      <Badge
-                        key={tag.label}
-                        variant="outline"
-                        className="text-xs px-2 py-0.5 text-muted-foreground border-border gap-1 cursor-default"
-                      >
-                        <ThumbsUp className="h-3 w-3 text-primary" />
-                        {tag.label}
-                      </Badge>
-                    ))}
-                  </div>
+                {isCompanyProfile &&
+                  (profile as any).organization && (
+                    <p className="text-sm text-muted-foreground">
+                      {(profile as any).organization}
+                    </p>
                 )}
               </div>
             </div>
 
             {/* Action buttons + social links */}
-            <div className="flex flex-col items-center md:items-end gap-3">
-              <div className="flex flex-wrap justify-center md:justify-end gap-2 w-full">
+              <div className="flex flex-col items-center md:items-end gap-3">
                 {isOwner ? (
                   <Button
                     variant="outline"
@@ -345,31 +457,150 @@ const PublicProfileView: React.FC = () => {
                     Edit
                   </Button>
                 ) : (
-                  renderButtons()
+                  <div className="flex flex-row justify-end gap-2">
+                    {renderButtons()}
+                  </div>
                 )}
+                <div className="flex flex-wrap items-center justify-end gap-2 mt-2">
+                  <Button variant="outline" size="sm" className={`text-xs ${(isCompanyProfile || profile.user_type === "professional" || profile.user_type === "student") ? "border-black text-black" : ""}`}>
+                    Social Links
+                  </Button>
+                  <SocialMediaLinks
+                    links={profile.social_links || {}}
+                    editable={false}
+                  />
+                </div>
               </div>
-              <SocialMediaLinks
-                links={profile.social_links || {}}
-                editable={false}
-              />
-            </div>
+            
           </div>
+        
         </CardContent>
       </Card>
+
+      {isOwner && (
+          <CardContent className="py-5 px-0">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+
+              <div className="rounded-lg border p-4 text-center">
+                <Eye className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {profileViews}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Profile Views
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-4 text-center">
+                <Users className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {connectionsCount}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Connections
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-4 text-center">
+                <Briefcase className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {userPosts.length}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Posts
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-4 text-center">
+                <Star className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {profileCompletion}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Completion
+                </p>
+              </div>
+
+            </div>
+          </CardContent>
+      ) 
+      } 
+
+      {!isOwner && (
+          <CardContent className="py-5 px-0">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+             
+
+              <div className="rounded-lg border p-4 text-center">
+                <Users className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {connectionsCount}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Connections
+                </p>
+              </div>
+
+              <div className="rounded-lg border p-4 text-center">
+                <Briefcase className="mx-auto mb-2 h-5 w-5 text-primary" />
+                <p className="text-2xl font-bold">
+                  {userPosts.length}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Posts
+                </p>
+                
+              </div>
+            </div>
+          </CardContent>
+      )}
 
       {/* ── BODY SECTIONS ──────────────────────────────────────────────── */}
 
       {/* About / Activity — owner only (private info) */}
-      {isOwner && (
-        <AboutActivitySection
-          publicProfile
-          profile={profile}
-          userPosts={userPosts}
-        />
-      )}
+     
+      <AboutActivitySection
+        publicProfile
+        profile={profile}
+        userPosts={userPosts}
+      />
+    
 
       {/* Fix #1 — Skills always rendered; ProfileSkillsSection handles the empty state */}
       <ProfileSkillsSection profile={profile} />
+
+      {isCompanyProfile && (
+        <Card className="border border-border shadow-sm">
+            <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-foreground">Featured (3 items)</h3>
+                </div>
+                <div className="flex flex-row justify-center items-end gap-6">
+                    {/* Item 3 */}
+                    <div className="flex flex-col w-[140px]">
+                        <div className="h-3 w-[90%] bg-gray-400 rounded-t-lg mx-auto" />
+                        <div className="h-[160px] bg-[#dcfce7] border border-gray-400 rounded-b-lg rounded-t-sm p-3 relative shadow-sm">
+                            <div className="bg-white rounded border border-gray-300 p-2 text-sm text-black w-full">Item 3</div>
+                        </div>
+                    </div>
+                    {/* Item 1 */}
+                    <div className="flex flex-col w-[140px]">
+                        <div className="h-3 w-[90%] bg-gray-400 rounded-t-lg mx-auto" />
+                        <div className="h-[140px] bg-[#dcfce7] border border-gray-400 rounded-b-lg rounded-t-sm p-3 relative shadow-sm">
+                            <div className="bg-white rounded border border-gray-300 p-2 text-sm text-black w-full">Item 1</div>
+                        </div>
+                    </div>
+                    {/* Item 2 */}
+                    <div className="flex flex-col w-[140px]">
+                        <div className="h-3 w-[90%] bg-gray-400 rounded-t-lg mx-auto" />
+                        <div className="h-[150px] bg-[#dcfce7] border border-gray-400 rounded-b-lg rounded-t-sm p-3 relative shadow-sm">
+                            <div className="bg-white rounded border border-gray-300 p-2 text-sm text-black w-full">Item 2</div>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+      )}
 
       <PortfolioSection profile={profile} />
       <ExperienceSection profile={profile} />

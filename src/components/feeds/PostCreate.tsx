@@ -30,7 +30,7 @@ const PostCreate = () => {
 	const isMobile = useIsMobile()
 
 	const [postType, setPostType] =
-		useState("update")
+		useState("general")
 
 	const [content, setContent] =
 		useState("")
@@ -384,7 +384,7 @@ const PostCreate = () => {
 			// RESET FORM
 			setContent("")
 
-			setPostType("update")
+			setPostType("general")
 
 			setImageFile(null)
 
@@ -505,7 +505,7 @@ const PostCreate = () => {
 					{/* TEXTAREA */}
 					<Textarea
 						placeholder={
-							postType === "job"
+							postType === "career"
 								? "Describe the job opportunity..."
 								: postType === "project"
 								? "Tell us about your project..."

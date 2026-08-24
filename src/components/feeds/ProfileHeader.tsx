@@ -28,30 +28,30 @@ const ProfileHeader = ({ profile, uploading, handleAvatarChange, handleAvatarRem
 
 		if (userType === "student") {
 			return {
-				bgColor: "bg-yellow-100 dark:bg-yellow-950",
-				borderColor: "border-yellow-200 dark:border-yellow-800",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",
-				iconEmoji: "🎓",
+				bgColor: "bg-[#ffb3a7] dark:bg-red-950/60",
+				borderColor: "border-[#ffb3a7] dark:border-red-800/50",
+				titleColor: "text-black dark:text-foreground",
+				descColor: "text-black/80 dark:text-muted-foreground",
+				iconEmoji: "",
 				message: "Your journey into the industry starts right here!",
 			}
 		} else if (userType === "professional") {
 			return {
-				bgColor: "bg-orange-100 dark:bg-orange-950",
-				borderColor: "border-orange-200 dark:border-orange-800",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",
-				iconEmoji: "💼",
-				message: "Ready to connect, grow, and lead in Kenya's built environment?",
+				bgColor: "bg-[#ffb3a7] dark:bg-orange-950/60",
+				borderColor: "border-[#ffb3a7] dark:border-orange-800/50",
+				titleColor: "text-black dark:text-foreground",
+				descColor: "text-black/80 dark:text-muted-foreground",
+				iconEmoji: "",
+				message: "Ready to connect, grow and lead in Kenya's Built Environment?",
 			}
 		} else if (userType === "company") {
 			return {
-				bgColor: "bg-green-100 dark:bg-green-950",
-				borderColor: "border-green-200 dark:border-green-800",
-				titleColor: "text-foreground",
-				descColor: "text-muted-foreground",
-				iconEmoji: "🪪",
-				message: "Relevance & Visibility has never been easier until now.",
+				bgColor: "bg-[#f0433d] dark:bg-red-950/70",
+				borderColor: "border-[#f0433d] dark:border-red-800/60",
+				titleColor: "text-black dark:text-foreground",
+				descColor: "text-black/80 dark:text-muted-foreground",
+				iconEmoji: "",
+				message: "Relevance & Visibility has never been easier until now!",
 			}
 		}
 
@@ -79,7 +79,7 @@ const ProfileHeader = ({ profile, uploading, handleAvatarChange, handleAvatarRem
 				</CardHeader>
 			</Card>
 
-			<CardContent className="!mt-1 px-0 py-6">
+			<CardContent className="!mt-1 border-b border-border px-0 py-6">
 				<div className="flex flex-col space-y-4 lg:flex-row lg:items-start lg:justify-between lg:space-y-0">
 					{/* Info and Avatar */}
 					<div className="flex gap-4 space-y-4 sm:flex-row sm:items-start sm:space-x-4 sm:space-y-0 lg:space-x-6">
@@ -128,7 +128,7 @@ const ProfileHeader = ({ profile, uploading, handleAvatarChange, handleAvatarRem
 							<ProfileEditDialog
 								currentProfile={profile}
 								onProfileUpdated={handleProfileUpdate}>
-								<Button className="flex-1 sm:flex-none">
+								<Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-none dark:bg-primary dark:hover:bg-primary/80">
 									<Edit className="mr-1 h-4 w-4" />
 									Edit Profile
 								</Button>
@@ -144,7 +144,7 @@ const ProfileHeader = ({ profile, uploading, handleAvatarChange, handleAvatarRem
 									<Button
 										variant="outline"
 										size="sm"
-										className="text-xs">
+										className="text-xs border-border text-foreground hover:bg-accent hover:text-accent-foreground dark:border-border dark:text-foreground dark:hover:bg-accent">
 										Social Links
 									</Button>
 								}

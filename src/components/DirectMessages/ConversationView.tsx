@@ -10,8 +10,7 @@ import {
   Loader2,
   Paperclip,
   MoreVertical,
-  Plus,
-  PlusSquare,
+  MessageSquare,
 } from "lucide-react"
 import { useMessagingStore } from "@/stores/messagingStore"
 import { formatTimestamp, compressImage, cn } from "@/lib/utils"
@@ -88,6 +87,9 @@ const ConversationView: React.FC<
   const fetchMessages =
     useMessagingStore((s) => s.fetchMessages)
 
+  const fetchOlderMessages =
+    useMessagingStore((s) => s.fetchOlderMessages)
+
   const addMessage =
     useMessagingStore((s) => s.addMessage)
 
@@ -96,6 +98,9 @@ const ConversationView: React.FC<
 
   const updateMessage =
     useMessagingStore((s) => s.updateMessage)
+
+  const markConversationRead =
+    useMessagingStore((s) => s.markConversationRead)
 
   const [sending, setSending] = useState(false)
   const [content, setContent] = useState("")
@@ -114,6 +119,11 @@ const ConversationView: React.FC<
     string | null
   >(null)
 
+  const [loadingOlder, setLoadingOlder] =
+    useState(false)
+  const [hasMoreOlder, setHasMoreOlder] =
+    useState(true)
+
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const fileInputRef =
@@ -124,13 +134,21 @@ const ConversationView: React.FC<
     [messages]
   )
 
-   const [selectedUser, setSelectedUser] = useState<ConversationItem | null>(null)
-  const [activeTab, setActiveTab] = useState<"inbox" | "chat">("chat")
-
   useEffect(() => {
     if (!user || !otherUserId) return
 
     fetchMessages(user.id, otherUserId)
+  }, [user, otherUserId])
+
+  // Mark messages as read when viewing a conversation
+  useEffect(() => {
+    if (!user || !otherUserId) return
+
+    markConversationRead(otherUserId)
+    directMessagesService.markMessagesAsRead(
+      user.id,
+      otherUserId
+    )
   }, [user, otherUserId])
 
   useEffect(() => {
@@ -246,6 +264,58 @@ const ConversationView: React.FC<
     removeMessage(id)
   }
 
+  const handleRetry = async (msg: Message) => {
+    if (!user || sending) return
+
+    setSending(true)
+
+    const tempId = `temp-${Date.now()}`
+
+    const retryMessage: Message = {
+      ...msg,
+      id: tempId,
+      status: "sending",
+    }
+
+    removeMessage(msg.id)
+    addMessage(retryMessage)
+
+    try {
+      const { data, error } =
+        await directMessagesService.sendMessage({
+          sender_id: user.id,
+          recipient_id: otherUserId,
+          content: msg.content || "",
+          image_url: msg.image_url || undefined,
+          image_type: msg.image_type || null,
+        })
+
+      if (error) throw error
+
+      removeMessage(tempId)
+
+      if (data) {
+        addMessage({
+          ...data,
+          status: "sent",
+        })
+      }
+    } catch (err: any) {
+      updateMessage({
+        ...retryMessage,
+        status: "failed",
+      })
+
+      toast({
+        title: "Send failed",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+
+    setSending(false)
+  }
+
   const handleEdit = async (id: string) => {
     const { data } =
       await directMessagesService.updateMessage({
@@ -276,6 +346,55 @@ const ConversationView: React.FC<
       {/* MESSAGES */}
       <ScrollArea className="flex-1 bg-muted/10 px-3 py-4">
         <div className="space-y-3">
+          {/* EMPTY STATE */}
+          {messages.length === 0 && !loading && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <MessageSquare className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                No messages yet
+              </p>
+              <p className="mt-1 max-w-[200px] text-xs text-muted-foreground">
+                Send a message below to start the conversation
+              </p>
+            </div>
+          )}
+
+          {/* LOAD OLDER MESSAGES */}
+          {messages.length > 0 && hasMoreOlder && (
+            <div className="flex justify-center">
+              <button
+                onClick={async () => {
+                  setLoadingOlder(true)
+                  const prevCount = messages.length
+                  await fetchOlderMessages(
+                    user!.id,
+                    otherUserId
+                  )
+                  // If no new messages were added, there are no more
+                  const newCount =
+                    useMessagingStore.getState()
+                      .messagesByUserId[otherUserId]
+                      ?.length ?? 0
+                  if (
+                    newCount - prevCount <
+                    20
+                  ) {
+                    setHasMoreOlder(false)
+                  }
+                  setLoadingOlder(false)
+                }}
+                disabled={loadingOlder}
+                className="rounded-full border px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {loadingOlder
+                  ? "Loading..."
+                  : "Load older messages"}
+              </button>
+            </div>
+          )}
+
           {conversationItems.map((item) => {
             if (item.type === "separator") {
               return (
@@ -458,6 +577,14 @@ const ConversationView: React.FC<
                           <span className="text-red-400">
                             {" "}
                             · Failed
+                            <button
+                              onClick={() =>
+                                handleRetry(msg)
+                              }
+                              className="ml-1.5 text-xs text-primary underline hover:text-primary/80"
+                            >
+                              Retry
+                            </button>
                           </span>
                         )}
                       </p>
@@ -491,20 +618,7 @@ const ConversationView: React.FC<
           </div>
         )}
 
-        <div className="flex items-end gap-2">
-
-          {/* NEW BUTTON */}
-            <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setActiveTab("chat")
-                              setSelectedUser(null)
-                            }}
-                            title="New message"
-                          >
-                            <PlusSquare className="h-4 w-4" />
-                          </Button>
+        <div className="flex items-end gap-2 w-full">
 
           {/* EMOJI */}
           <EmojiPickerButton
@@ -525,24 +639,34 @@ const ConversationView: React.FC<
           </Button>
 
           {/* INPUT */}
-          <div className="flex flex-1 items-end rounded-full border bg-background px-3 py-1">
+          <div className="flex flex-1 items-end rounded-2xl border bg-background px-3 py-2">
             <Textarea
               value={content}
-              onChange={(e) =>
-                setContent(e.target.value)
-              }
+              onChange={(e) => setContent(e.target.value)}
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
-                  !e.shiftKey
+                  (e.ctrlKey || e.metaKey)
                 ) {
                   e.preventDefault()
                   handleSend()
                 }
               }}
-              placeholder="Message..."
-              className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
-              rows={1}
+              placeholder="Type a message..."
+              rows={5}
+              className="
+                min-h-[60px]
+                max-h-[160px]
+                resize-none
+                border-0
+                bg-transparent
+                shadow-none
+                focus-visible:ring-0
+                overflow-y-auto
+                leading-relaxed
+                text-sm
+                px-0
+              "
             />
           </div>
 

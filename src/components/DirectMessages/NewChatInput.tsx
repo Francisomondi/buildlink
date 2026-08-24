@@ -19,6 +19,7 @@ interface UserListItem {
   id: string
   name?: string
   avatar?: string
+ 
 }
 
 export default function RecipientInput({
@@ -33,11 +34,12 @@ export default function RecipientInput({
 
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<UserListItem[]>([])
-  const [selectedUser, setSelectedUser] =
-    useState<UserListItem | null>(null)
+  const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null)
 
   const [message, setMessage] = useState("")
   const [file, setFile] = useState<File | null>(null)
+
+
 
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -55,24 +57,25 @@ export default function RecipientInput({
     }
 
     document.addEventListener("mousedown", handleClickOutside)
-
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
   // SEARCH USERS
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!query.trim()) {
-        setResults([])
-        return
-      }
+  if (selectedUser) return
 
-      fetchUsers(query)
-    }, 300)
+  const timeout = setTimeout(() => {
+    if (!query.trim()) {
+      setResults([])
+      setOpen(false)
+      return
+    }
 
-    return () => clearTimeout(timeout)
-  }, [query])
+    fetchUsers(query)
+  }, 300)
+
+  return () => clearTimeout(timeout)
+}, [query, selectedUser])
 
   const fetchUsers = async (search: string) => {
     if (!currentUserId) return
@@ -87,25 +90,25 @@ export default function RecipientInput({
       .limit(10)
 
     if (data) {
-      setResults(
-        data.map((u) => ({
-          id: u.id,
-          name: u.full_name,
-          avatar: u.avatar,
-        }))
-      )
+      const users = data.map((u) => ({
+        id: u.id,
+        name: u.full_name,
+        avatar: u.avatar,
+      }))
 
-      setOpen(true)
+      setResults(users)
+      setOpen(users.length > 0)
     }
 
     setLoading(false)
   }
 
-  const handleSelectUser = (user: UserListItem) => {
-    setSelectedUser(user)
-    setQuery(user.name || "")
-    setOpen(false)
-  }
+ const handleSelectUser = (user: UserListItem) => {
+  setSelectedUser(user)
+  setQuery(user.name || "")
+  setResults([])
+  setOpen(false)
+}
 
   // SEND MESSAGE
   const handleStart = async () => {
@@ -120,29 +123,24 @@ export default function RecipientInput({
       if (file) {
         let fileToUpload = file
 
-        // COMPRESS IMAGES
         if (file.type.startsWith("image/")) {
           try {
             fileToUpload = await compressImage(file)
-          } catch {}
+          } catch { }
         }
 
-        // SIZE LIMIT
         if (fileToUpload.size > 10 * 1024 * 1024) {
           toast({
             title: "File too large",
             description: "Max size is 10MB",
             variant: "destructive",
           })
-
           setCreating(false)
           return
         }
 
         const fileExt = file.name.split(".").pop()
-
         const fileName = `${currentUserId}-${Date.now()}.${fileExt}`
-
         const filePath = `chat/${fileName}`
 
         const { error } = await supabase.storage
@@ -158,41 +156,34 @@ export default function RecipientInput({
           .getPublicUrl(filePath)
 
         image_url = data.publicUrl
-
-        image_type = file.type.startsWith("image")
-          ? "image"
-          : "pdf"
+        image_type = file.type.startsWith("image") ? "image" : "pdf"
       }
 
-      // SEND
       if (message.trim() || image_url) {
-        const { data, error } =
-          await directMessagesService.sendMessage({
-            sender_id: currentUserId,
-            recipient_id: selectedUser.id,
-            content: message.trim(),
-            image_url,
-            image_type,
-          })
+        const { data, error } = await directMessagesService.sendMessage({
+          sender_id: currentUserId,
+          recipient_id: selectedUser.id,
+          content: message.trim(),
+          image_url,
+          image_type,
+          
+        })
 
         if (error) throw error
-
-        if (data) {
-          addMessageToStore(data)
-        }
+        if (data) addMessageToStore(data)
       }
 
       await onStartChat(selectedUser)
 
-      // RESET
       setMessage("")
       setQuery("")
       setSelectedUser(null)
+      setResults([])
+      setOpen(false)
       setFile(null)
+      
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+      if (fileInputRef.current) fileInputRef.current.value = ""
     } catch (err: any) {
       toast({
         title: "Send failed",
@@ -209,9 +200,7 @@ export default function RecipientInput({
     setMessage("")
     setFile(null)
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+    if (fileInputRef.current) fileInputRef.current.value = ""
 
     toast({
       title: "Cleared",
@@ -222,7 +211,7 @@ export default function RecipientInput({
   return (
     <div
       ref={wrapperRef}
-      className="w-full max-w-md space-y-4 rounded-xl border bg-card p-4 shadow-sm"
+      className="w-full max-w-md space-y-4 rounded-xl bg-card p-4"
     >
       <h2 className="text-center text-lg font-semibold">
         Create New Message
@@ -231,22 +220,48 @@ export default function RecipientInput({
       {/* RECIPIENT */}
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">
-          <h2 className="f+">To:</h2>
+          <h2>To:</h2>
         </label>
 
         <div className="relative">
           <Input
-            placeholder="Search user..."
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            name="recipient-search"
+            placeholder="Add User..."
             value={query}
             onChange={(e) => {
-              setQuery(e.target.value)
-              setSelectedUser(null)
+              const value = e.target.value
+
+              setQuery(value)
+
+              if (selectedUser) {
+                setSelectedUser(null)
+              }
+
+              setOpen(value.trim().length > 0)
             }}
-            onFocus={() => query && setOpen(true)}
           />
 
           {open && (
-            <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+            <div className="
+            absolute
+            top-full
+            left-0
+            right-0
+            z-50
+            mt-2
+            max-h-72
+            overflow-y-auto
+            rounded-xl
+            border
+            border-border
+            bg-background/95
+            backdrop-blur-md
+            shadow-xl
+            ">
               {loading && (
                 <div className="flex justify-center p-3">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -267,18 +282,12 @@ export default function RecipientInput({
                     className="flex w-full items-center gap-3 px-3 py-2 hover:bg-muted"
                   >
                     <Avatar className="h-7 w-7">
-                      <AvatarImage
-                        src={user.avatar ?? ""}
-                      />
-
+                      <AvatarImage src={user.avatar ?? ""} />
                       <AvatarFallback>
                         {user.name?.[0] || "U"}
                       </AvatarFallback>
                     </Avatar>
-
-                    <span className="text-sm">
-                      {user.name}
-                    </span>
+                    <span className="text-sm">{user.name}</span>
                   </button>
                 ))}
             </div>
@@ -286,50 +295,43 @@ export default function RecipientInput({
         </div>
       </div>
 
-      {/* MESSAGE */}
+     
+
+      {/* MESSAGE — fixed: bg-card + text-foreground for dark mode */}
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Type your message..."
-        className="min-h-[100px] w-full resize-none rounded-md border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className="min-h-[100px] w-full resize-none rounded-md border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
       />
 
       {/* ACTION BAR */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/30 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2">
 
         {/* LEFT */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-
           <EmojiPickerButton
-            onSelect={(emoji) =>
-              setMessage((prev) => prev + emoji)
-            }
+            onSelect={(emoji) => setMessage((prev) => prev + emoji)}
           />
 
           {/* ATTACH */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background transition hover:bg-muted"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card transition hover:bg-muted"
           >
             <Paperclip className="h-4 w-4" />
           </button>
 
           {/* FILE PREVIEW */}
           {file && (
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs shadow-sm">
-              <span className="truncate text-foreground">
-                {file.name}
-              </span>
-
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs shadow-sm">
+              <span className="truncate text-foreground">{file.name}</span>
               <button
                 type="button"
                 onClick={() => {
                   setFile(null)
-
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = ""
-                  }
+                  if (fileInputRef.current) fileInputRef.current.value = ""
                 }}
                 className="shrink-0 text-red-500 hover:underline"
               >
@@ -338,20 +340,16 @@ export default function RecipientInput({
             </div>
           )}
 
-          {/* SINGLE FILE INPUT */}
+          {/* FILE INPUT */}
           <input
             type="file"
             ref={fileInputRef}
             className="hidden"
             accept="image/*,application/pdf"
             onChange={(e) => {
-              const selected =
-                e.target.files?.[0]
-
+              const selected = e.target.files?.[0]
               if (!selected) return
-
               setFile(selected)
-
               toast({
                 title: "File attached",
                 description: selected.name,
@@ -362,8 +360,6 @@ export default function RecipientInput({
 
         {/* RIGHT */}
         <div className="flex shrink-0 items-center gap-2">
-
-          {/* CANCEL */}
           <Button
             type="button"
             variant="outline"
@@ -373,7 +369,6 @@ export default function RecipientInput({
             Cancel
           </Button>
 
-          {/* SEND */}
           <Button
             size="icon"
             disabled={!selectedUser || creating}

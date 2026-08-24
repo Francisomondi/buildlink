@@ -100,12 +100,13 @@ const Index: React.FC<IndexProps> = ({ customContent, showNavigation = true, sho
 			<OfflineIndicator />
 
 			{/* Main Content */}
-			<div className="relative top-12 mx-auto grid h-screen w-full max-w-screen-xl grid-cols-12 px-4 pb-20 md:pb-8">
+		<div className="relative top-12 mx-auto grid h-screen w-full max-w-screen-xl grid-cols-12 px-4 pb-24 md:pb-8">
 				{showNavigation && (
 					<div className="col-span-3 bg-background/80">
 						<ResponsiveNavigation loading={loading} />
 					</div>
 				)}
+				{/* Main Content Area */}
 				<div className={`col-span-12 md:col-span-7 ${showNavigation ? "md:col-start-4" : ""}`}>
 					{/* Content Filters */}
 					{shouldShowFilters && (

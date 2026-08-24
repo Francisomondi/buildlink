@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import PortfolioThumbnail from "./PortfolioThumbnail"
 import { Button } from "@/components/ui/button"
-import { Trash, FileText, ExternalLink, Edit, Check, X, Image as ImageIcon, GripVertical, ArrowLeftRight } from "lucide-react"
+import { Trash, FileText, Edit, Check, X, Image as ImageIcon, GripVertical, ArrowLeftRight, ExternalLink } from "lucide-react"
 import { PortfolioItem } from "@/types"
 import MediaPreview from "@/components/ui/media-preview"
 import { supabase } from "@/integrations/supabase/client"
+
 
 interface PortfolioGalleryProps {
 	open: boolean
@@ -174,7 +175,7 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 	const renderPortfolioCard = (item: any, index: number) => {
 		const isEditing = editingId === item.id
 
-		// Title row — shared between card types
+	// Title row — shared between card types
 		const titleRow = (
 			<div className="flex items-center gap-1 group/title">
 				{isEditing ? (
@@ -189,7 +190,7 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 								if (e.key === "Escape") cancelEdit()
 							}}
 							maxLength={80}
-							className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-gray-900 outline-none border-b border-primary"
+							className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-foreground outline-none border-b border-primary"
 						/>
 						<button type="button" onClick={commitEdit} className="text-green-600 hover:text-green-700 p-0.5" aria-label="Save">
 							<Check className="h-3.5 w-3.5" />
@@ -200,7 +201,7 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 					</div>
 				) : (
 					<>
-						<span className="line-clamp-2 flex-1 text-sm font-semibold text-gray-900">{item.name}</span>
+						<span className="line-clamp-2 flex-1 text-sm font-semibold text-foreground">{item.name}</span>
 						{canEdit && onRename && !arrangeMode && (
 							<button
 								type="button"
@@ -219,16 +220,16 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 		if (item.type === "pdf" || item.type === "link") {
 			return (
 				<div
-					className="cursor-pointer rounded-xl border-2 border-gray-200 bg-white p-6 transition-colors hover:bg-gray-50"
+					className="cursor-pointer rounded-xl border-2 border-border bg-card p-6 transition-colors hover:bg-accent"
 					onClick={() => handleItemClick(item, index)}>
 					<div className="flex flex-col items-center space-y-4 text-center">
-						<div className="flex h-16 w-16 items-center justify-center rounded-lg bg-gray-100">
+						<div className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
 							{item.type === "pdf" ? <FileText className="h-8 w-8 text-red-500" /> : <ExternalLink className="h-8 w-8 text-blue-500" />}
 						</div>
 						<div className="w-full space-y-2">
 							{titleRow}
-							{item.description && <p className="line-clamp-2 text-xs text-gray-500">{item.description}</p>}
-							<span className={`inline-block text-xs px-2 py-1 rounded-md font-medium ${item.type === "pdf" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>
+							{item.description && <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
+							<span className={`inline-block text-xs px-2 py-1 rounded-md font-medium ${item.type === "pdf" ? "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"}`}>
 								{item.type === "pdf" ? "PDF" : "Link"}
 							</span>
 						</div>
@@ -261,11 +262,11 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 						</button>
 					)}
 				</div>
-				<div className="min-h-[68px] border-t bg-muted/40 px-3 py-3">
-					{titleRow}
-					{item.description && <div className="mt-1 line-clamp-2 text-xs text-gray-500">{item.description}</div>}
-					<span className="mt-2 inline-block rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">{item.type.toUpperCase()}</span>
-				</div>
+			<div className="min-h-[68px] border-t border-border bg-muted/40 px-3 py-3">
+				{titleRow}
+				{item.description && <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.description}</div>}
+				<span className="mt-2 inline-block rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-950/60 dark:text-green-300">{item.type.toUpperCase()}</span>
+			</div>
 			</div>
 		)
 	}
@@ -274,7 +275,9 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 		<Dialog
 			open={open}
 			onOpenChange={setOpen}>
-			<DialogContent className="w-[calc(100vw-2rem)] max-w-4xl rounded-xl shadow-lg p-4 sm:p-6">
+			<DialogContent
+				className="w-[calc(100vw-2rem)] max-w-4xl rounded-xl shadow-lg p-4 sm:p-6"
+				description="View, rearrange, rename, or remove your portfolio projects">
 				<DialogHeader className="flex-row items-center justify-between gap-2 flex-wrap">
 					<DialogTitle className="text-lg font-semibold">Portfolio Projects</DialogTitle>
 					{canEdit && localOrder.length > 1 && (
@@ -298,7 +301,9 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 				{/* In-app PDF viewer */}
 				{activeItem?.type === "pdf" && (
 					<Dialog open={pdfViewerOpen} onOpenChange={setPdfViewerOpen}>
-						<DialogContent className="max-w-6xl h-[85vh] p-6">
+						<DialogContent
+							className="max-w-6xl h-[85vh] p-6"
+							description={`Viewing ${activeItem.name} PDF document`}>
 							<DialogHeader>
 								<DialogTitle className="text-lg font-semibold">
 									{activeItem.name}
@@ -312,17 +317,6 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 									size="lg"
 									showActions
 								/>
-							</div>
-							<div className="mt-3 flex gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => window.open(activeItem.url, "_blank", "noopener,noreferrer")}
-									className="flex items-center gap-2"
-								>
-									<ExternalLink className="h-4 w-4" />
-									Open in new tab
-								</Button>
 							</div>
 						</DialogContent>
 					</Dialog>
@@ -349,20 +343,20 @@ const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
 							<div className={`overflow-hidden rounded-xl`}>{renderPortfolioCard(item, i)}</div>
 
 							{/* Delete button below each item */}
-							{canEdit && typeof onRemove === "function" && !arrangeMode && (
-								<Button
-									variant="outline"
-									size="sm"
-									className="w-full border-red-600 text-red-600 hover:border-red-300 hover:bg-red-50"
-									onClick={(e) => {
-										e.stopPropagation()
-										onRemove(item.id)
-									}}
-									disabled={updating}>
-									<Trash className="mr-2 h-4 w-4" />
-									Remove
-								</Button>
-							)}
+						{canEdit && typeof onRemove === "function" && !arrangeMode && (
+							<Button
+								variant="outline"
+								size="sm"
+								className="w-full border-red-600 text-red-600 hover:border-red-300 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/40"
+								onClick={(e) => {
+									e.stopPropagation()
+									onRemove(item.id)
+								}}
+								disabled={updating}>
+								<Trash className="mr-2 h-4 w-4" />
+								Remove
+							</Button>
+						)}
 						</div>
 					))}
 				</div>
